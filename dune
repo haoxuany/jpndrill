@@ -1,0 +1,3 @@
+(executable
+  (name jpndrill)
+  (libraries batteries curl lablgtk3 yojson))
