@@ -20,7 +20,7 @@ let map_request f r =
 type 'a staged = unit -> 'a request
 
 type ocrdata = string
-type segmentdata = Parse.Segment.t
+type segmentdata = Parse.Segment.sentence list
 type id = int
 
 type entry_state =
@@ -65,19 +65,33 @@ let load_directory dir =
   entries
 
 let fetch_ocr (entry : entry_state) =
-  let fetch () =
-    let request = map_request
-    (fun imgdata ->
-      entry.imgdata := (fun () -> OK imgdata);
-      try
-        let ocr = GCloudTextRecognition.ocr imgdata in
-        let result = ocr () in
-        OK result
-      with | e -> Error e
-    )
-    ((!(entry.imgdata))()) in
-    entry.ocrdata := Some request
-  in
   match !(entry.ocrdata) with
   | Some (OK _) -> ()
-  | Some (Error _) | None -> fetch ()
+  | Some (Error _) | None ->
+      let request = map_request
+      (fun imgdata ->
+        entry.imgdata := (fun () -> OK imgdata);
+        try
+          let ocr = GCloudTextRecognition.ocr imgdata in
+          let result = ocr () in
+          entry.bufferdata := result;
+          OK result
+        with | e -> Error e
+      )
+      ((!(entry.imgdata))()) in
+      entry.ocrdata := Some request
+
+let set_buffer (entry : entry_state) s =
+  entry.bufferdata := s;
+  entry.segmentdata := None
+
+let fetch_segment (entry : entry_state) =
+  match !(entry.segmentdata) with
+  | Some (OK _) -> ()
+  | _ ->
+    entry.segmentdata :=
+      Some (try
+        let parse = Parse.parse !(entry.bufferdata) in
+        let result = parse () in
+        OK result
+      with | e -> Error e)

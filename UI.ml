@@ -67,7 +67,7 @@ let init () =
   (* textview *)
   let buffer_edit = GText.buffer ~text:"Select a file from the filelist to get started" () in
   let buffer_result = GText.buffer () in
-  let textview = GText.view ~buffer:buffer_edit ~editable:false () in
+  let textview = GText.view ~buffer:buffer_edit () in
   textview#set_monospace true;
   textview#set_halign `FILL;
   textview#set_justification `CENTER;
@@ -99,10 +99,6 @@ let init () =
     )
   ) in
 
-  let _ = actionbutton#connect#clicked ~callback:(fun () ->
-    ()
-  ) in
-
   (* settings button clicked *)
   let _ = settingsbutton#connect#clicked ~callback:(fun () ->
     let window = GWindow.window
@@ -120,23 +116,52 @@ let init () =
     ()
   ) in
 
-  (* list selected *)
-  let _ = selection#connect#changed ~callback:(fun () ->
+  let on_selected f =
     match selection#get_selected_rows with
     | [] -> ()
-    | file :: _ ->
-        let iter = liststore#get_iter file in
+    | entry :: _ ->
+        let iter = liststore#get_iter entry in
         let id = liststore#get ~row:iter ~column:idcol in
         let entry = Internal.find_entry id in
-        img#set_file entry.filename;
-        Internal.fetch_ocr entry;
-        let text =
-          match !(entry.ocrdata) with
-          | None | Some (Error _) -> "Some Error Happened"
-          | Some (OK s) -> s
-        in
-        buffer_edit#set_text text;
-        ()
+        f entry
+  in
+
+  (* list selected *)
+  let _ = selection#connect#changed ~callback:(fun () ->
+    on_selected (fun entry ->
+      img#set_file entry.filename;
+      Internal.fetch_ocr entry;
+      let text =
+        match !(entry.ocrdata) with
+        | None | Some (Error _) -> "Some Error Happened"
+        | Some (OK s) -> s
+      in
+      buffer_edit#set_text text
+    )
+  ) in
+
+  (* buffer modified *)
+  let _ = buffer_edit#connect#changed ~callback:(fun () ->
+    on_selected (fun entry ->
+      Internal.set_buffer entry (buffer_edit#get_text ()))
+  ) in
+
+  (* action clicked *)
+  let _ = actionbutton#connect#clicked ~callback:(fun () ->
+    on_selected (fun entry ->
+      Internal.fetch_segment entry;
+      let text =
+        match !(entry.segmentdata) with
+        | None | Some (Error _) -> "Some Error Happened"
+        | Some (OK s) ->
+            BatString.join "\n" @@
+            List.map
+            (fun sentence -> BatString.join "/" @@
+              List.map GCloudNaturalLanguageSyntax.Segment.to_string sentence ) s
+      in
+      buffer_result#set_text text;
+      textview#set_buffer buffer_result
+    )
   ) in
 
   window#show ();
