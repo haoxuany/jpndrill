@@ -1,3 +1,3 @@
 
 build:
-	dune exec ./jpndrill.exe
+	dune exec --profile release ./jpndrill.exe

@@ -11,15 +11,26 @@ let init () =
     ~title:"JPN Drill"
     ~width:width
     ~height:height
+    ~position:`CENTER
     ()
   in
   let _ = window#connect#destroy ~callback:Main.quit in
 
-  let wlayout = GPack.hbox ~packing:window#add () in
+  let wlayout = GPack.vbox ~packing:window#add () in
   wlayout#set_halign `FILL ;
   let grid = GPack.grid ~col_spacings:8 ~row_spacings:8 ~packing:wlayout#pack () in
   grid#set_expand true;
 
+  (* statusbar *)
+  let statusbar = GMisc.statusbar ~packing:wlayout#pack ~show:true () in
+  let (set_status, status_ready) =
+    let status = statusbar#new_context ~name:"Status" in
+    let count = ref 0 in
+    let remove_all () = for _i = 1 to !count do status#pop () done; count := 0 in
+    let push = fun s -> remove_all (); status#push s |> ignore in
+    push, (fun () -> push "Ready")
+  in
+  status_ready ();
 
   (* top buttons *)
   let buttonbox = GPack.hbox () in
@@ -27,6 +38,10 @@ let init () =
   grid#attach ~left:0 ~top:0 ~width:2 buttonbox#coerce;
   (* open button *)
   let openbutton = GButton.button ~label:"Open" ~packing:buttonbox#pack () in
+  (* action button *)
+  let actionbutton = GButton.button ~label:"Action" ~packing:buttonbox#pack () in
+  (* settings button *)
+  let settingsbutton = GButton.button ~label:"Settings" ~packing:buttonbox#pack () in
 
   (* image display *)
   let img = GMisc.image () in
@@ -37,6 +52,7 @@ let init () =
 
   (* list *)
   let columns = new GTree.column_list in
+  let idcol = columns#add Gobject.Data.int in
   let labelcol = columns#add Gobject.Data.string in
   columns#lock () ;
 
@@ -49,13 +65,13 @@ let init () =
   let selection = list#selection in
 
   (* textview *)
-  let buffer = GText.buffer ~text:"hello" () in
-  let textview = GText.view ~buffer:buffer ~editable:false () in
-  grid#attach ~left:1 ~top:0 ~width:1 ~height:4 textview#coerce;
+  let buffer_edit = GText.buffer ~text:"Select a file from the filelist to get started" () in
+  let buffer_result = GText.buffer () in
+  let textview = GText.view ~buffer:buffer_edit ~editable:false () in
+  textview#set_monospace true;
   textview#set_halign `FILL;
-  textview#set_events [`POINTER_MOTION];
-  (* (GtkBase.Widget.cast textview#as_widget) *)
-  let _ = textview#connect#move_cursor ~callback:(fun _ _ ~extend:_ -> print_string "moved") in
+  textview#set_justification `CENTER;
+  grid#attach ~left:1 ~top:0 ~width:1 ~height:4 textview#coerce;
 
   (* action reactions *)
   (* open button clicked *)
@@ -74,14 +90,34 @@ let init () =
     (match selected with
     | None -> ()
     | Some selected ->
-        BatSys.chdir selected;
-        let files = BatSys.readdir "."
-          |> BatArray.filter (fun s -> List.exists (BatString.ends_with s) [".jpg"]) in
-        BatArray.iter (fun s ->
+        Internal.load_directory selected |>
+        BatList.iter (fun (entry : Internal.entry_state) ->
           let iter = liststore#append () in
-          liststore#set ~row:iter ~column:labelcol s
-        ) files
+          liststore#set ~row:iter ~column:labelcol entry.filename;
+          liststore#set ~row:iter ~column:idcol entry.id
+        )
     )
+  ) in
+
+  let _ = actionbutton#connect#clicked ~callback:(fun () ->
+    ()
+  ) in
+
+  (* settings button clicked *)
+  let _ = settingsbutton#connect#clicked ~callback:(fun () ->
+    let window = GWindow.window
+      ~title:"Settings" ~modal:true
+      ~position:`CENTER
+      () in
+    let wlayout = GPack.vbox ~packing:window#add () in
+    wlayout#set_halign `FILL ;
+    (* font settings *)
+    let font = GMisc.font_selection ~packing:wlayout#pack ~show:true () in
+    let text = buffer_edit#get_text () |> BatString.trim in
+    font#set_preview_text text;
+
+    window#show ();
+    ()
   ) in
 
   (* list selected *)
@@ -90,10 +126,16 @@ let init () =
     | [] -> ()
     | file :: _ ->
         let iter = liststore#get_iter file in
-        let filename = liststore#get ~row:iter ~column:labelcol in
-        img#set_file filename;
-        let ocr = GCloudTextRecognition.ocr (BatIO.read_all (BatFile.open_in filename)) in
-        buffer#set_text (ocr ());
+        let id = liststore#get ~row:iter ~column:idcol in
+        let entry = Internal.find_entry id in
+        img#set_file entry.filename;
+        Internal.fetch_ocr entry;
+        let text =
+          match !(entry.ocrdata) with
+          | None | Some (Error _) -> "Some Error Happened"
+          | Some (OK s) -> s
+        in
+        buffer_edit#set_text text;
         ()
   ) in
 
