@@ -65,13 +65,25 @@ let init () =
   let selection = list#selection in
 
   (* textview *)
-  let buffer_edit = GText.buffer ~text:"Select a file from the filelist to get started" () in
-  let buffer_result = GText.buffer () in
+  let buffer_edit = GText.buffer
+    ~text:"Select a file from the filelist to get started"
+    () in
+  let tag_table = GText.tag_table () in
+  let buffer_result = GText.buffer ~tag_table () in
   let textview = GText.view ~buffer:buffer_edit () in
   textview#set_monospace true;
   textview#set_halign `FILL;
   textview#set_justification `CENTER;
   grid#attach ~left:1 ~top:0 ~width:1 ~height:4 textview#coerce;
+
+  (* tags *)
+  let tag name prop =
+    let tag = GText.tag ~name () in
+    tag#set_properties prop;
+    tag
+  in
+  let seg_item = tag "Tag" [`UNDERLINE_SET true ; `UNDERLINE `SINGLE] in
+  tag_table#add seg_item#as_tag;
 
   (* action reactions *)
   (* open button clicked *)
@@ -150,18 +162,37 @@ let init () =
   let _ = actionbutton#connect#clicked ~callback:(fun () ->
     on_selected (fun entry ->
       Internal.fetch_segment entry;
-      let text =
-        match !(entry.segmentdata) with
-        | None | Some (Error _) -> "Some Error Happened"
-        | Some (OK s) ->
-            BatString.join "\n" @@
+      match !(entry.segmentdata) with
+      | None | Some (Error _) -> buffer_result#insert "Something bad happened"
+      | Some (OK s) ->
+          List.iter (fun sentence ->
             List.map
-            (fun sentence -> BatString.join "/" @@
-              List.map GCloudNaturalLanguageSyntax.Segment.to_string sentence ) s
-      in
-      buffer_result#set_text text;
-      textview#set_buffer buffer_result
+            (fun ({text ; meta} : GCloudNaturalLanguageSyntax.Segment.t) ->
+              buffer_result#insert ~tags:(
+                match meta with
+                | None -> []
+                | Some _ -> [seg_item]
+              ) text
+            )
+            sentence |> ignore
+          ) s;
+      textview#set_buffer buffer_result;
+      textview#set_editable false
     )
+  ) in
+
+  (* tag reactions *)
+  let _ = seg_item#connect#event ~callback:(
+    fun ~origin event it ->
+      let iter = new GText.iter it in
+      let start = iter#backward_to_tag_toggle (Some seg_item) in
+      let stop = iter#forward_to_tag_toggle (Some seg_item) in
+      match GdkEvent.get_type event with
+      | `BUTTON_PRESS ->
+          let text = start#get_text ~stop in
+          print_string text;
+          true
+      | _ -> false
   ) in
 
   window#show ();
