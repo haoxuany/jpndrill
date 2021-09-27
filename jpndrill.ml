@@ -3,6 +3,7 @@ open Batteries;;
 (* functorize this when I have time *)
 module OCR = GCloudTextRecognition
 module Parse = GCloudNaturalLanguageSyntax
+module Lookup = JishoLookup
 
 module Main = struct
 
