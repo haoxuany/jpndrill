@@ -33,7 +33,12 @@ type jisho_response =
 
 let lookup word =
   let handle = C.init () in
-  C.set_url handle (String.concat "" ["https://jisho.org/api/v1/search/words" ; "?" ; "keyword=" ; word]);
+  C.set_url handle (String.concat ""
+    [ "https://jisho.org/api/v1/search/words"
+    ; "?"
+    ; "keyword="
+    ; C.escape word]
+  );
   C.set_httpheader handle [
     "Content-Type: application/json; charset=utf-8"
   ];

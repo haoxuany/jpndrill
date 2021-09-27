@@ -1,3 +1,4 @@
+open Batteries;;
 open GMain;;
 
 let init () =
@@ -103,7 +104,7 @@ let init () =
     | None -> ()
     | Some selected ->
         Internal.load_directory selected |>
-        BatList.iter (fun (entry : Internal.entry_state) ->
+        List.iter (fun (entry : Internal.entry_state) ->
           let iter = liststore#append () in
           liststore#set ~row:iter ~column:labelcol entry.filename;
           liststore#set ~row:iter ~column:idcol entry.id
@@ -121,7 +122,7 @@ let init () =
     wlayout#set_halign `FILL ;
     (* font settings *)
     let font = GMisc.font_selection ~packing:wlayout#pack ~show:true () in
-    let text = buffer_edit#get_text () |> BatString.trim in
+    let text = buffer_edit#get_text () |> String.trim in
     font#set_preview_text text;
 
     window#show ();
@@ -166,6 +167,8 @@ let init () =
       | None | Some (Error _) -> buffer_result#insert "Something bad happened"
       | Some (OK s) ->
           List.iter (fun sentence ->
+            sentence |>
+            List.interleave ({text = " " ; meta = None} : GCloudNaturalLanguageSyntax.Segment.t) |>
             List.map
             (fun ({text ; meta} : GCloudNaturalLanguageSyntax.Segment.t) ->
               buffer_result#insert ~tags:(
@@ -173,8 +176,7 @@ let init () =
                 | None -> []
                 | Some _ -> [seg_item]
               ) text
-            )
-            sentence |> ignore
+            ) |> ignore
           ) s;
       textview#set_buffer buffer_result;
       textview#set_editable false
@@ -190,7 +192,11 @@ let init () =
       match GdkEvent.get_type event with
       | `BUTTON_PRESS ->
           let text = start#get_text ~stop in
-          print_string text;
+          let message = Internal.dict_lookup text in
+          let popup = GWindow.message_dialog ~parent:window ~buttons:GWindow.Buttons.ok
+          ~message_type:`INFO ~message () in
+          popup#run () |> ignore;
+          popup#destroy ();
           true
       | _ -> false
   ) in

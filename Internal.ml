@@ -2,6 +2,7 @@ open Batteries;;
 
 module OCR = GCloudTextRecognition
 module Parse = GCloudNaturalLanguageSyntax
+module Lookup = JishoLookup
 
 let read_dir_files dir =
   BatSys.readdir dir
@@ -95,3 +96,12 @@ let fetch_segment (entry : entry_state) =
         let result = parse () in
         OK result
       with | e -> Error e)
+
+(* dumb, fix this *)
+let dict_lookup text =
+  let result = Lookup.lookup text () in
+  result.data
+    |> List.hd
+    |> (fun d -> d.japanese)
+    |> List.hd
+    |> (fun d -> d.reading)
