@@ -17,13 +17,19 @@ let init () =
   in
   let _ = window#connect#destroy ~callback:Main.quit in
 
-  let wlayout = GPack.vbox ~packing:window#add () in
-  wlayout#set_halign `FILL ;
-  let grid = GPack.grid ~col_spacings:8 ~row_spacings:8 ~packing:wlayout#pack () in
-  grid#set_expand true;
+  let layout_window = GPack.vbox ~packing:window#add () in
+
+  let layout_split = GPack.paned `HORIZONTAL ~packing:layout_window#pack ~show:true () in
+  layout_split#set_expand true;
+
+  let frame ~label ~packing f =
+    let frame = GBin.frame ~label ~packing ~show:true () in
+    frame#set_expand true;
+    f ~packing:frame#add
+  in
 
   (* statusbar *)
-  let statusbar = GMisc.statusbar ~packing:wlayout#pack ~show:true () in
+  let statusbar = GMisc.statusbar ~packing:layout_window#pack ~show:true () in
   let (set_status, status_ready) =
     let status = statusbar#new_context ~name:"Status" in
     let count = ref 0 in
@@ -33,10 +39,12 @@ let init () =
   in
   status_ready ();
 
+  (* Left UI *)
+  let layout_left = GPack.vbox ~packing:layout_split#pack1 () in
+
   (* top buttons *)
-  let buttonbox = GPack.hbox () in
+  let buttonbox = GPack.hbox ~packing:layout_left#pack () in
   buttonbox#set_halign `FILL;
-  grid#attach ~left:0 ~top:0 ~width:2 buttonbox#coerce;
   (* open button *)
   let openbutton = GButton.button ~label:"Open" ~packing:buttonbox#pack () in
   (* action button *)
@@ -44,12 +52,12 @@ let init () =
   (* settings button *)
   let settingsbutton = GButton.button ~label:"Settings" ~packing:buttonbox#pack () in
 
+  let layout_left = GPack.paned `VERTICAL ~packing:layout_left#pack ~show:true () in
+
   (* image display *)
-  let img = GMisc.image () in
-  grid#attach ~left:0 ~top:1 ~width:2 img#coerce;
+  let img = frame ~label:"Image" ~packing:layout_left#pack1
+    (fun ~packing -> GMisc.image ~packing ()) in
   img#set_halign `START;
-  img#set_hexpand true;
-  img#set_vexpand true;
 
   (* list *)
   let columns = new GTree.column_list in
@@ -58,24 +66,29 @@ let init () =
   columns#lock () ;
 
   let liststore = GTree.list_store columns in
-  let list = GTree.view ~model:liststore ~width:100 ~height:100 () in
+  let list = frame ~label:"Files" ~packing:layout_left#pack2
+    (fun ~packing -> GTree.view ~model:liststore ~width:100 ~height:100 ~packing ()) in
   GTree.view_column ~renderer:(GTree.cell_renderer_text [], ["text", labelcol]) ()
   |> list#append_column
   |> ignore;
-  grid#attach ~left:0 ~top:2 ~width:2 list#coerce;
+
   let selection = list#selection in
 
-  (* textview *)
+  (* Right UI *)
+  let layout_right = GPack.paned `VERTICAL ~packing:layout_split#pack2 ~show:true () in
+
+  (* main text *)
   let buffer_edit = GText.buffer
     ~text:"Select a file from the filelist to get started"
     () in
   let tag_table = GText.tag_table () in
   let buffer_result = GText.buffer ~tag_table () in
-  let textview = GText.view ~buffer:buffer_edit () in
+  let textview = frame ~label:"Text" ~packing:layout_right#pack1
+    (fun ~packing -> GText.view ~buffer:buffer_edit ~packing ()) in
   textview#set_monospace true;
   textview#set_halign `FILL;
+  textview#set_valign `CENTER;
   textview#set_justification `CENTER;
-  grid#attach ~left:1 ~top:0 ~width:1 ~height:4 textview#coerce;
 
   (* tags *)
   let tag name prop =
@@ -85,6 +98,16 @@ let init () =
   in
   let seg_item = tag "Tag" [`UNDERLINE_SET true ; `UNDERLINE `SINGLE] in
   tag_table#add seg_item#as_tag;
+
+  (* lookup *)
+  let layout_lookup = frame ~label:"Lookup" ~packing:layout_right#pack2
+    (fun ~packing -> GPack.vbox ~packing ()) in
+
+  let lookupview = GText.view ~packing:layout_lookup#pack () in
+  lookupview#set_expand true;
+
+  let layout_search = GPack.hbox ~packing:layout_lookup#pack () in
+  let search = GEdit.entry ~packing:layout_search#pack () in
 
   (* action reactions *)
   (* open button clicked *)
