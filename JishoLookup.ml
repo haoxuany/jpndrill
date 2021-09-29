@@ -1,8 +1,8 @@
 open Batteries;;
+open Lwt;;
+open CurlLwt;;
 
 module C = Curl
-module CB = CurlBoot
-module J = Yojson.Basic
 
 type jisho_meta =
   { status : int
@@ -31,8 +31,8 @@ type jisho_response =
   ; data : jisho_data list
   } [@@deriving of_yojson, show] [@@yojson.allow_extra_fields]
 
-let lookup word =
-  let handle = C.init () in
+let perform word =
+  let%lwt handle = init () in
   C.set_url handle (String.concat ""
     [ "https://jisho.org/api/v1/search/words"
     ; "?"
@@ -42,9 +42,8 @@ let lookup word =
   C.set_httpheader handle [
     "Content-Type: application/json; charset=utf-8"
   ];
-  fun () ->
-    let open J.Util in
-    let result = CurlBoot.perform handle in
-    result
-    |> Yojson.Safe.from_string
-    |> jisho_response_of_yojson
+  let%lwt result = perform handle in
+  result
+  |> Yojson.Safe.from_string
+  |> jisho_response_of_yojson
+  |> return

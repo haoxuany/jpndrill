@@ -1,4 +1,5 @@
 open Batteries;;
+open Lwt;;
 
 module OCR = GCloudTextRecognition
 module Parse = GCloudNaturalLanguageSyntax
@@ -73,8 +74,7 @@ let fetch_ocr (entry : entry_state) =
       (fun imgdata ->
         entry.imgdata := (fun () -> OK imgdata);
         try
-          let ocr = GCloudTextRecognition.ocr imgdata in
-          let result = ocr () in
+          let result = Lwt_main.run (OCR.perform imgdata) in
           entry.bufferdata := result;
           OK result
         with | e -> Error e
@@ -92,14 +92,13 @@ let fetch_segment (entry : entry_state) =
   | _ ->
     entry.segmentdata :=
       Some (try
-        let parse = Parse.parse !(entry.bufferdata) in
-        let result = parse () in
+        let result = Lwt_main.run (Parse.perform !(entry.bufferdata)) in
         OK result
       with | e -> Error e)
 
 (* dumb, fix this *)
 let dict_lookup text =
-  let result = Lookup.lookup text () in
+  let result = Lwt_main.run (Lookup.perform text) in
   result.data
     |> List.hd
     |> (fun d -> d.japanese)

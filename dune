@@ -1,4 +1,4 @@
 (executable
   (name jpndrill)
-  (libraries batteries curl lablgtk3 yojson ppx_deriving.show ppx_yojson_conv)
-  (preprocess (pps ppx_deriving.show ppx_yojson_conv)))
+  (libraries batteries curl curl.lwt lablgtk3 lwt lwt.unix yojson ppx_deriving.show ppx_yojson_conv)
+  (preprocess (pps ppx_deriving.show ppx_yojson_conv lwt_ppx)))

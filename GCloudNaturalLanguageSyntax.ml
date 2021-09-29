@@ -1,8 +1,9 @@
 open Batteries;;
+open Lwt;;
+open CurlLwt;;
+open CurlLwtGCloud;;
 
 module C = Curl
-module CB = CurlBoot
-module J = Yojson.Basic
 
 module Segment = struct
   type meta =
@@ -18,14 +19,16 @@ module Segment = struct
     String.concat "" [text ; "(" ; (match meta with None -> "N/A" | Some { tag } -> tag) ; ")" ]
 end
 
-let parse text =
-  let handle = C.init () in
-    CurlBoot.gauth handle
-      ({ url = "https://language.googleapis.com/v1/documents:analyzeSyntax"
-      (* dumb, needs to be fixed *)
-      ; auth = CurlBoot.APIKey (String.trim (BatIO.read_all (BatFile.open_in "/Users/haoxuany/projects/apikey")))
-      }) ;
-    C.set_post handle true ;
+let perform text =
+  let%lwt handle = init () in
+  let%lwt handle = add_gcloud_auth
+    "https://language.googleapis.com/v1/documents:analyzeSyntax"
+    (* dumb, needs to be fixed *)
+    (APIKey (String.trim (BatIO.read_all (BatFile.open_in "/Users/haoxuany/projects/apikey"))))
+    handle
+  in
+  C.set_post handle true ;
+  let%lwt request =
     (`Assoc
     [ ("encodingType", `String "UTF8")
     ; ("document",
@@ -35,26 +38,29 @@ let parse text =
         ]
       )
     ])
-    |> J.to_string
-    |> C.set_postfields handle ;
-    fun () ->
-      let open J.Util in
+    |> Yojson.Safe.to_string
+    |> return
+  in
+  C.set_postfields handle request;
+  perform handle
+  >>= handle_gcloud_error
+  >>= fun json ->
+      let open Yojson.Safe.Util in
       let module SplayDict = BatSplay.Map(struct
         type t = int
         let compare = Int.compare
       end) in
-      let result = CurlBoot.perform_g handle in
       let tokens =
-        result |> member "tokens" |> to_list
+        json |> member "tokens" |> to_list
         |> List.map (fun json ->
             let text = json |> member "text" in
             ( text |> member "beginOffset" |> to_int
             , { text = text |> member "content" |> to_string
               ; meta = Some { tag = json |> member "partOfSpeech" |> member "tag" |> to_string } }
-            ) : J.t -> (int * Segment.t))
+            ) : Yojson.Safe.t -> (int * Segment.t))
         |> SplayDict.of_list
       in
-      result |> member "sentences" |> to_list
+      json |> member "sentences" |> to_list
         |> List.map (fun json ->
             let json = member "text" json in
             let content = member "content" json |> to_string in
@@ -82,3 +88,4 @@ let parse text =
             in
             split offset offset
           )
+          |> return
