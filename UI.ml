@@ -165,13 +165,8 @@ let init () =
   (* list selected *)
   let _ = selection#connect#changed ~callback:(fun () ->
     on_selected (fun entry ->
+      let text = Internal.fetch_ocr entry in
       img#set_file entry.filename;
-      Internal.fetch_ocr entry;
-      let text =
-        match !(entry.ocrdata) with
-        | None | Some (Error _) -> "Some Error Happened"
-        | Some (OK s) -> s
-      in
       buffer_edit#set_text text
     )
   ) in

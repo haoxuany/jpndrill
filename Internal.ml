@@ -28,8 +28,8 @@ type id = int
 type entry_state =
   { id : id
   ; filename : string
-  ; imgdata : string staged ref
-  ; ocrdata : ocrdata request option ref
+  ; imgdata : string Lwt.t
+  ; ocrdata : ocrdata Lwt.t
   ; bufferdata : string ref
   ; segmentdata : segmentdata request option ref
   }
@@ -53,34 +53,27 @@ let find_entry id = Dict.find id !((!state).entries)
 
 let load_directory dir =
   let files = read_dir_files dir in
-  let wrap_exn f = fun () -> try OK (f ()) with | e -> Error e in
   let entries = List.map (fun f ->
+    let imgdata = Lwt_io.with_file ~mode:Lwt_io.Input f Lwt_io.read in
+    let bufferdata = ref "" in
+    let ocrdata =
+      let%lwt imgdata = imgdata in
+      let%lwt result = OCR.perform imgdata in
+      bufferdata := result;
+      return result
+    in
     { id = id ()
     ; filename = f
-    ; imgdata = ref @@ wrap_exn (fun () -> f |> BatFile.open_in |> BatIO.read_all)
-    ; ocrdata = ref None
-    ; bufferdata = ref ""
+    ; imgdata = imgdata
+    ; ocrdata = ocrdata
+    ; bufferdata = bufferdata
     ; segmentdata = ref None
     }
   ) files in
   state := { entries = ref @@ Dict.of_list @@ List.map (fun e -> (e.id, e)) entries };
   entries
 
-let fetch_ocr (entry : entry_state) =
-  match !(entry.ocrdata) with
-  | Some (OK _) -> ()
-  | Some (Error _) | None ->
-      let request = map_request
-      (fun imgdata ->
-        entry.imgdata := (fun () -> OK imgdata);
-        try
-          let result = Lwt_main.run (OCR.perform imgdata) in
-          entry.bufferdata := result;
-          OK result
-        with | e -> Error e
-      )
-      ((!(entry.imgdata))()) in
-      entry.ocrdata := Some request
+let fetch_ocr (entry : entry_state) = Lwt_main.run entry.ocrdata
 
 let set_buffer (entry : entry_state) s =
   entry.bufferdata := s;
