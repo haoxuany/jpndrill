@@ -44,7 +44,6 @@ let init () =
 
   (* top buttons *)
   let buttonbox = GPack.hbox ~packing:layout_left#pack () in
-  buttonbox#set_halign `FILL;
   (* open button *)
   let openbutton = GButton.button ~label:"Open" ~packing:buttonbox#pack () in
   (* action button *)
@@ -55,9 +54,25 @@ let init () =
   let layout_left = GPack.paned `VERTICAL ~packing:layout_left#pack ~show:true () in
 
   (* image display *)
+  let pixbuf = ref None in
   let img = frame ~label:"Image" ~packing:layout_left#pack1
     (fun ~packing -> GMisc.image ~packing ()) in
-  img#set_halign `START;
+  let rescale_img rect =
+    match !pixbuf with
+    | None -> ()
+    | Some pixbuf ->
+      let ({ width ; height } : Gtk.rectangle) = rect in
+      let result = GdkPixbuf.create ~width ~height () in
+      GdkPixbuf.scale ~dest:result ~width ~height pixbuf;
+      img#set_pixbuf result;
+      img#misc#set_size_request ~width:(GdkPixbuf.get_width pixbuf) ~height:(GdkPixbuf.get_height pixbuf) ()
+  in
+  let load_img filename =
+    let buf = GdkPixbuf.from_file filename in
+    pixbuf := Some buf;
+    rescale_img img#misc#allocation
+  in
+  let _ = img#misc#connect#size_allocate ~callback:rescale_img in
 
   (* list *)
   let columns = new GTree.column_list in
@@ -86,8 +101,6 @@ let init () =
   let textview = frame ~label:"Text" ~packing:layout_right#pack1
     (fun ~packing -> GText.view ~buffer:buffer_edit ~packing ()) in
   textview#set_monospace true;
-  textview#set_halign `FILL;
-  textview#set_valign `CENTER;
   textview#set_justification `CENTER;
 
   (* tags *)
@@ -142,7 +155,6 @@ let init () =
       ~position:`CENTER
       () in
     let wlayout = GPack.vbox ~packing:window#add () in
-    wlayout#set_halign `FILL ;
     (* font settings *)
     let font = GMisc.font_selection ~packing:wlayout#pack ~show:true () in
     let text = buffer_edit#get_text () |> String.trim in
@@ -166,7 +178,7 @@ let init () =
   let _ = selection#connect#changed ~callback:(fun () ->
     on_selected (fun entry ->
       let text = Internal.fetch_ocr entry in
-      img#set_file entry.filename;
+      load_img entry.filename;
       buffer_edit#set_text text
     )
   ) in
