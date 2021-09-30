@@ -126,7 +126,10 @@ let init () =
   let layout_lookup = frame ~label:"Lookup" ~packing:layout_right#pack2
     (fun ~packing -> GPack.vbox ~packing ()) in
 
-  let lookupview = GText.view ~packing:layout_lookup#pack () in
+  let lookupview =
+    let scroll = GBin.scrolled_window ~packing:layout_lookup#pack () in
+    GText.view ~wrap_mode:`WORD ~packing:scroll#add ()
+  in
   lookupview#set_expand true;
 
   let layout_search = GPack.hbox ~packing:layout_lookup#pack () in
@@ -230,11 +233,10 @@ let init () =
       match GdkEvent.get_type event with
       | `BUTTON_PRESS ->
           let text = start#get_text ~stop in
-          let message = Internal.dict_lookup text in
-          let popup = GWindow.message_dialog ~parent:window ~buttons:GWindow.Buttons.ok
-          ~message_type:`INFO ~message () in
-          popup#run () |> ignore;
-          popup#destroy ();
+          search#set_text text;
+          let info = Internal.dict_lookup text in
+          let head, body = List.hd info in
+          lookupview#buffer#set_text body;
           true
       | _ -> false
   ) in

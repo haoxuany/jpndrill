@@ -77,11 +77,30 @@ let fetch_segment (entry : entry_state) =
     result
   | Some result -> result
 
-(* dumb, fix this *)
 let dict_lookup text =
   let result = Lwt_main.run (Lookup.perform text) in
-  result.data
-    |> List.hd
-    |> (fun d -> d.japanese)
-    |> List.hd
-    |> (fun d -> d.reading)
+  let open Lookup in
+  List.map (fun ({ slug ; japanese ; senses ; _}) ->
+    slug,
+    String.concat "\n" @@
+    List.interleave "" @@
+    (String.concat "/"
+      (List.map (fun { word ; reading } ->
+        match word with
+        | None -> reading
+        | Some word -> String.concat "" [word ; " (" ; reading ; ") "]
+      ) japanese
+      )
+    ) ::
+    (List.mapi (fun index { english_definitions ; parts_of_speech } ->
+      String.concat ""
+      [ Int.to_string (index + 1)
+      ; ". "
+      ; String.concat "/" english_definitions
+      ; " ("
+      ; String.concat "," parts_of_speech
+      ; ")"
+      ]
+      ) senses
+    )
+  ) result.data
