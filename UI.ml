@@ -180,22 +180,20 @@ let init () =
   (* action clicked *)
   let _ = actionbutton#connect#clicked ~callback:(fun () ->
     on_selected (fun entry ->
-      Internal.fetch_segment entry;
-      match !(entry.segmentdata) with
-      | None | Some (Error _) -> buffer_result#insert "Something bad happened"
-      | Some (OK s) ->
-          List.iter (fun sentence ->
-            sentence |>
-            GCloudNaturalLanguageSyntax.Segment.clean_segment_space |>
-            List.map
-            (fun ({text ; info} : GCloudNaturalLanguageSyntax.Segment.t) ->
-              buffer_result#insert ~tags:(
-                match info with
-                | None -> []
-                | Some _ -> [seg_item]
-              ) text
-            ) |> ignore
-          ) s;
+      Internal.fetch_segment entry
+      |>
+        List.iter (fun sentence ->
+          sentence |>
+          GCloudNaturalLanguageSyntax.Segment.clean_segment_space |>
+          List.map
+          (fun ({text ; info} : GCloudNaturalLanguageSyntax.Segment.t) ->
+            buffer_result#insert ~tags:(
+              match info with
+              | None -> []
+              | Some _ -> [seg_item]
+            ) text
+          ) |> ignore
+        );
       textview#set_buffer buffer_result;
       textview#set_editable false
     )

@@ -10,17 +10,6 @@ let read_dir_files dir =
     |> BatArray.to_list
     |> BatList.filter (fun s -> List.exists (BatString.ends_with s) [".jpg"])
 
-type 'a request =
-| OK of 'a
-| Error of exn
-
-let map_request f r =
-  match r with
-  | OK a -> f a
-  | Error exn -> Error exn
-
-type 'a staged = unit -> 'a request
-
 type ocrdata = string
 type segmentdata = Parse.Segment.sentence list
 type id = int
@@ -31,7 +20,7 @@ type entry_state =
   ; imgdata : string Lwt.t
   ; ocrdata : ocrdata Lwt.t
   ; bufferdata : string ref
-  ; segmentdata : segmentdata request option ref
+  ; segmentdata : segmentdata option ref
   }
 
 module Dict = BatSplay.Map(struct
@@ -81,13 +70,11 @@ let set_buffer (entry : entry_state) s =
 
 let fetch_segment (entry : entry_state) =
   match !(entry.segmentdata) with
-  | Some (OK _) -> ()
-  | _ ->
-    entry.segmentdata :=
-      Some (try
-        let result = Lwt_main.run (Parse.perform !(entry.bufferdata)) in
-        OK result
-      with | e -> Error e)
+  | None ->
+    let result = Lwt_main.run (Parse.perform !(entry.bufferdata)) in
+    entry.segmentdata := Some result;
+    result
+  | Some result -> result
 
 (* dumb, fix this *)
 let dict_lookup text =
