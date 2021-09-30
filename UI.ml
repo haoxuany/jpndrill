@@ -54,25 +54,33 @@ let init () =
   let layout_left = GPack.paned `VERTICAL ~packing:layout_left#pack ~show:true () in
 
   (* image display *)
-  let pixbuf = ref None in
-  let img = frame ~label:"Image" ~packing:layout_left#pack1
-    (fun ~packing -> GMisc.image ~packing ()) in
-  let rescale_img rect =
-    match !pixbuf with
-    | None -> ()
-    | Some pixbuf ->
-      let ({ width ; height } : Gtk.rectangle) = rect in
-      let result = GdkPixbuf.create ~width ~height () in
-      GdkPixbuf.scale ~dest:result ~width ~height pixbuf;
-      img#set_pixbuf result;
-      img#misc#set_size_request ~width:(GdkPixbuf.get_width pixbuf) ~height:(GdkPixbuf.get_height pixbuf) ()
+  let load_img =
+    let pixbuf = ref None in
+    let img_inner = GBin.scrolled_window () in
+    let img = frame ~label:"Image" ~packing:layout_left#pack1
+      (fun ~packing ->
+        packing img_inner#coerce;
+        GMisc.image ~packing:img_inner#add ()) in
+    let rescale_img rect =
+      match !pixbuf with
+      | None -> ()
+      | Some pixbuf ->
+        let ({ width ; height } : Gtk.rectangle) = rect in
+        let result = GdkPixbuf.create ~width ~height () in
+        GdkPixbuf.scale ~dest:result ~width ~height pixbuf;
+        img#misc#set_size_request ~width:(GdkPixbuf.get_width pixbuf) ~height:(GdkPixbuf.get_height pixbuf) ();
+        img_inner#misc#set_size_request ~width:(GdkPixbuf.get_width pixbuf) ~height:(GdkPixbuf.get_height pixbuf) ();
+        img#set_pixbuf result;
+        ()
+    in
+    let load_img filename =
+      let buf = GdkPixbuf.from_file filename in
+      pixbuf := Some buf;
+      rescale_img img_inner#misc#allocation
+    in
+    let _ = img_inner#misc#connect#size_allocate ~callback:rescale_img in
+    load_img
   in
-  let load_img filename =
-    let buf = GdkPixbuf.from_file filename in
-    pixbuf := Some buf;
-    rescale_img img#misc#allocation
-  in
-  let _ = img#misc#connect#size_allocate ~callback:rescale_img in
 
   (* list *)
   let columns = new GTree.column_list in
