@@ -75,13 +75,10 @@ end
 
 module S = Segment
 
-let perform text =
+let perform auth text =
   let%lwt handle = init () in
   let%lwt handle = add_gcloud_auth
-    "https://language.googleapis.com/v1/documents:analyzeSyntax"
-    (* dumb, needs to be fixed *)
-    (APIKey (String.trim (BatIO.read_all (BatFile.open_in "/Users/haoxuany/projects/apikey"))))
-    handle
+    "https://language.googleapis.com/v1/documents:analyzeSyntax" auth handle
   in
   C.set_post handle true ;
   let%lwt request =

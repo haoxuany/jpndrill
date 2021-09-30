@@ -5,13 +5,10 @@ open CurlLwtGCloud;;
 
 module C = Curl
 
-let perform data =
+let perform auth data =
   let%lwt handle = init () in
   let%lwt handle = add_gcloud_auth
-    "https://vision.googleapis.com/v1/images:annotate"
-    (* dumb, needs to be fixed *)
-    (APIKey (String.trim (BatIO.read_all (BatFile.open_in "/Users/haoxuany/projects/apikey"))))
-    handle
+    "https://vision.googleapis.com/v1/images:annotate" auth handle
   in
   C.set_post handle true ;
   let%lwt request =

@@ -47,7 +47,7 @@ let load_directory dir =
     let bufferdata = ref "" in
     let ocrdata =
       let%lwt imgdata = imgdata in
-      let%lwt result = OCR.perform imgdata in
+      let%lwt result = OCR.perform (CurlLwtGCloud.APIKey !(Preferences.gcloud_apikey)) imgdata in
       bufferdata := result;
       return result
     in
@@ -71,7 +71,8 @@ let set_buffer (entry : entry_state) s =
 let fetch_segment (entry : entry_state) =
   match !(entry.segmentdata) with
   | None ->
-    let result = Lwt_main.run (Parse.perform !(entry.bufferdata)) in
+    let result = Lwt_main.run
+      (Parse.perform (CurlLwtGCloud.APIKey !(Preferences.gcloud_apikey)) !(entry.bufferdata)) in
     entry.segmentdata := Some result;
     result
   | Some result -> result

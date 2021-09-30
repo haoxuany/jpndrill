@@ -29,7 +29,7 @@ let load (sections : t) s =
   (* very dumb way of reading things, but it does work and is simple *)
   let lines = String.split_on_char '\n' s
     |> List.map String.trim
-    |> List.filter (fun s -> String.is_empty s || String.starts_with s ";") in
+    |> List.filter (fun s -> not (String.is_empty s || String.starts_with s ";")) in
   let parsed = List.fold_left
   (fun result line ->
     if String.starts_with line "[" then
@@ -44,11 +44,11 @@ let load (sections : t) s =
   [] lines in
   (* very dumb and slow, but we can hash table this later *)
   List.iter (fun (name, fields) ->
-    match List.find_opt (fun s -> s.header == name) sections with
+    match List.find_opt (fun s -> s.header = name) sections with
     | None -> ()
     | Some { fields = section_fields ; _ } ->
         List.iter (fun (key, value) ->
-          match List.find_opt (fun s -> s.key == key) section_fields with
+          match List.find_opt (fun s -> s.key = key) section_fields with
           | None -> ()
           | Some { value = v ; _ } ->
               let module Value = (val v) in

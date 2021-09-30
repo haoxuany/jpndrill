@@ -12,6 +12,7 @@ module Main = struct
       let open Curl in
       global_init CURLINIT_GLOBALALL
     in
+    Preferences.load ();
     let _ = UI.init () in
     UI.run ()
 
