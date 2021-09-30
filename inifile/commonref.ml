@@ -2,8 +2,7 @@ open Refreference;;
 
 module StringRefReference =
   functor (
-    E : REFENTRY
-    with type t = string
+    E : sig val value : string ref end
   ) -> RefReference(
     struct
       module S = struct
@@ -11,14 +10,16 @@ module StringRefReference =
         let serialize s = s
         let deserialize s = s
       end
-      module E = E
+      module E = struct
+        type t = string
+        let reference = E.value
+      end
     end
   )
 
 module IntRefReference =
   functor (
-    E : REFENTRY
-    with type t = int
+    E : sig val value : int ref end
   ) -> RefReference(
     struct
       module S = struct
@@ -26,14 +27,16 @@ module IntRefReference =
         let serialize = Int.to_string
         let deserialize = int_of_string
       end
-      module E = E
+      module E = struct
+        type t = int
+        let reference = E.value
+      end
     end
   )
 
 module BoolRefReference =
   functor (
-    E : REFENTRY
-    with type t = bool
+    E : sig val value : bool ref end
   ) -> RefReference(
     struct
       module S = struct
@@ -41,6 +44,9 @@ module BoolRefReference =
         let serialize = Bool.to_string
         let deserialize = bool_of_string
       end
-      module E = E
+      module E = struct
+        type t = bool
+        let reference = E.value
+      end
     end
   )

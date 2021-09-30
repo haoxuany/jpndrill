@@ -1,12 +1,14 @@
 open Batteries;;
 open GMain;;
 
+module P = Preferences
+
 let init () =
   let _locale = GtkMain.Main.init () in
   (* TODO functorize this *)
   (* window *)
-  let width = 600 in
-  let height = 500 in
+  let width = !P.window_width in
+  let height = !P.window_height in
   let window =
     GWindow.window
     ~title:"JPN Drill"
