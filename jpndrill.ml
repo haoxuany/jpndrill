@@ -8,7 +8,10 @@ module Lookup = JishoLookup
 module Main = struct
 
   let ui () =
-    CurlBoot.init ();
+    let () =
+      let open Curl in
+      global_init CURLINIT_GLOBALALL
+    in
     let _ = UI.init () in
     UI.run ()
 

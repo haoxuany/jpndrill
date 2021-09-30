@@ -5,19 +5,75 @@ open CurlLwtGCloud;;
 
 module C = Curl
 
+type text_span =
+  { content : string
+  ; beginOffset : int
+  } [@@deriving of_yojson, show] [@@yojson.allow_extra_fields]
+
+type sentence =
+  { text : text_span
+  } [@@deriving of_yojson, show] [@@yojson.allow_extra_fields]
+
+type tag =
+  | Unknown [@name "UNKNOWN"]
+  | Adjective [@name "ADJ"]
+  | Adposition [@name "ADP"]
+  | Adverb [@name "ADV"]
+  | Conjuction [@name "CONJ"]
+  | Determiner [@name "DET"]
+  | Noun [@name "NOUN"]
+  | Number [@name "NUM"]
+  | Pronoun [@name "PRON"]
+  | Particle [@name "PRT"]
+  | Punctuation [@name "PUNCT"]
+  | Verb [@name "VERB"]
+  | Other [@name "X"]
+  | Affix [@name "AFFIX"]
+  [@@deriving of_yojson, show]
+
+type part_of_speech =
+  { tag : string
+  } [@@deriving of_yojson, show] [@@yojson.allow_extra_fields]
+
+type token =
+  { text : text_span
+  ; partOfSpeech : part_of_speech
+  ; lemma : string
+  } [@@deriving of_yojson, show] [@@yojson.allow_extra_fields]
+
+type response =
+  { sentences : sentence list
+  ; tokens : token list
+  ; language : string
+  } [@@deriving of_yojson, show] [@@yojson.allow_extra_fields]
+
 module Segment = struct
-  type meta =
-    { tag : string
-    }
+  type info =
+    { tag : tag
+    ; lemma : string
+    } [@@deriving show]
   type t =
     { text : string
-    ; meta : meta option
-    }
-  type sentence = t list
+    ; info : info option
+    } [@@deriving show]
+  type sentence = t list [@@deriving show]
 
-  let to_string ({ text ; meta } : t) =
-    String.concat "" [text ; "(" ; (match meta with None -> "N/A" | Some { tag } -> tag) ; ")" ]
+  let empty text =
+    { text ; info = None }
+
+  let rec clean_segment_space (segs : sentence) =
+    match segs with
+    | [] -> []
+    | ({ info = info1 } as seg1) :: (({ info = info2 } :: _) as tail) ->
+        begin
+          match info1, info2 with
+          | Some _, Some _ -> seg1 :: (empty " ") :: clean_segment_space tail
+          | _, _ -> seg1 :: clean_segment_space tail
+        end
+    | [_] -> segs
 end
+
+module S = Segment
 
 let perform text =
   let%lwt handle = init () in
@@ -50,26 +106,17 @@ let perform text =
         type t = int
         let compare = Int.compare
       end) in
+      let { sentences ; tokens } = response_of_yojson json in
       let tokens =
-        json |> member "tokens" |> to_list
-        |> List.map (fun json ->
-            let text = json |> member "text" in
-            ( text |> member "beginOffset" |> to_int
-            , { text = text |> member "content" |> to_string
-              ; meta = Some { tag = json |> member "partOfSpeech" |> member "tag" |> to_string } }
-            ) : Yojson.Safe.t -> (int * Segment.t))
+        tokens
+        |> List.map (fun tok -> (tok.text.beginOffset, tok))
         |> SplayDict.of_list
       in
-      json |> member "sentences" |> to_list
-        |> List.map (fun json ->
-            let json = member "text" json in
-            let content = member "content" json |> to_string in
-            let offset = member "beginOffset" json |> to_int in
+      sentences
+        |> List.map (fun ({ text = { content ; beginOffset = offset }} : sentence) ->
             let length = String.length content in
-            let unparsed from til : Segment.t =
-              { text = String.sub content from (til - from)
-              ; meta = None
-              }
+            let unparsed from til : S.t =
+              S.empty (String.sub content from (til - from))
             in
             let rec split offset lastoffset =
               if offset >= length then
@@ -78,12 +125,20 @@ let perform text =
                 else []
               else
               match SplayDict.find_opt offset tokens with
-                | Some seg ->
-                    let newalign = offset + (String.length seg.text) in
-                    let rest = split newalign newalign  in
+                | Some { text = { content = text ; _ } ; partOfSpeech = { tag } ; lemma } ->
+                    let newalign = offset + (String.length text) in
+                    let rest = split newalign newalign in
                     let rest =
                       if lastoffset < offset then (unparsed lastoffset offset) :: rest else rest in
-                    seg :: rest
+                    { text
+                    ; info = Some
+                      { tag =
+                        String.concat "" ["[\"" ; tag ; "\"]"]
+                        |> Yojson.Safe.from_string
+                        |> tag_of_yojson
+                      ; lemma
+                      }
+                    } :: rest
                 | None -> split (offset + 1) lastoffset
             in
             split offset offset

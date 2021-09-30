@@ -186,11 +186,11 @@ let init () =
       | Some (OK s) ->
           List.iter (fun sentence ->
             sentence |>
-            List.interleave ({text = " " ; meta = None} : GCloudNaturalLanguageSyntax.Segment.t) |>
+            GCloudNaturalLanguageSyntax.Segment.clean_segment_space |>
             List.map
-            (fun ({text ; meta} : GCloudNaturalLanguageSyntax.Segment.t) ->
+            (fun ({text ; info} : GCloudNaturalLanguageSyntax.Segment.t) ->
               buffer_result#insert ~tags:(
-                match meta with
+                match info with
                 | None -> []
                 | Some _ -> [seg_item]
               ) text
