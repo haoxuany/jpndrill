@@ -2,7 +2,6 @@
 #thread;;
 #require "batteries";;
 #require "curl";;
-#require "ctypes.foreign";;
 #require "lablgtk3";;
 #require "yojson";;
 

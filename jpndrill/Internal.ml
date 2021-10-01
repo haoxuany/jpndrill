@@ -17,6 +17,7 @@ type id = int
 type entry_state =
   { id : id
   ; filename : string
+  ; filepath : string
   ; imgdata : string Lwt.t
   ; ocrdata : ocrdata Lwt.t
   ; bufferdata : string ref
@@ -43,7 +44,8 @@ let find_entry id = Dict.find id !((!state).entries)
 let load_directory dir =
   let files = read_dir_files dir in
   let entries = List.map (fun f ->
-    let imgdata = Lwt_io.with_file ~mode:Lwt_io.Input f Lwt_io.read in
+    let filepath = (String.concat (Filename.dir_sep) [dir ; f]) in
+    let imgdata = Lwt_io.with_file ~mode:Lwt_io.Input filepath Lwt_io.read in
     let bufferdata = ref "" in
     let ocrdata =
       let%lwt imgdata = imgdata in
@@ -53,6 +55,7 @@ let load_directory dir =
     in
     { id = id ()
     ; filename = f
+    ; filepath
     ; imgdata = imgdata
     ; ocrdata = ocrdata
     ; bufferdata = bufferdata

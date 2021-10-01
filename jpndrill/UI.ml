@@ -210,7 +210,7 @@ let init () =
   let _ = selection#connect#changed ~callback:(fun () ->
     on_selected (fun entry ->
       let text = Internal.fetch_ocr entry in
-      load_img entry.filename;
+      load_img entry.filepath;
       buffer_edit#set_text text
     )
   ) in
