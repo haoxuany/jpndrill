@@ -104,3 +104,10 @@ let dict_lookup text =
       ) senses
     )
   ) result.data
+
+let pronounce_lookup text =
+  let result = Lwt_main.run (Lookup.perform text) in
+  let open Lookup in
+  match result.data with
+  | { japanese = ({ reading ; _ } :: _) ; _ } :: _ -> Some reading
+  | _ -> None

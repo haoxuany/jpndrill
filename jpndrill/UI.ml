@@ -230,14 +230,24 @@ let init () =
       let iter = new GText.iter it in
       let start = iter#backward_to_tag_toggle (Some seg_item) in
       let stop = iter#forward_to_tag_toggle (Some seg_item) in
+      let text = start#get_text ~stop in
       match GdkEvent.get_type event with
       | `BUTTON_PRESS ->
-          let text = start#get_text ~stop in
           search#set_text text;
           let info = Internal.dict_lookup text in
           let head, body = List.hd info in
           lookupview#buffer#set_text body;
           true
+      | `MOTION_NOTIFY ->
+          (* we'd need a caching way of doing this if we ever want to, otherwise we'd hit
+             a request overload. *)
+          (* begin match Internal.pronounce_lookup text with *)
+          (* | None -> textview#set_has_tooltip false *)
+          (* | Some result -> *)
+          (*     textview#set_has_tooltip true; *)
+          (*     textview#set_tooltip_text result *)
+          (* end; *)
+          false
       | _ -> false
   ) in
 
