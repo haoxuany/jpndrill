@@ -209,9 +209,18 @@ let init () =
   (* list selected *)
   let _ = selection#connect#changed ~callback:(fun () ->
     on_selected (fun entry ->
-      let text = Internal.fetch_ocr entry in
+      let text =
+        match !(entry.bufferdata) with
+        | "" ->
+            let text = Internal.fetch_ocr entry in
+            Internal.set_buffer entry text;
+            text
+        | text -> text
+      in
       load_img entry.filepath;
-      buffer_edit#set_text text
+      buffer_edit#set_text text;
+      textview#set_buffer buffer_edit;
+      textview#set_editable true
     )
   ) in
 
