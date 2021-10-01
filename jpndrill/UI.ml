@@ -126,11 +126,26 @@ let init () =
   let layout_lookup = frame ~label:"Lookup" ~packing:layout_right#pack2
     (fun ~packing -> GPack.vbox ~packing ()) in
 
-  let lookupview =
-    let scroll = GBin.scrolled_window ~packing:layout_lookup#pack () in
-    GText.view ~wrap_mode:`WORD ~packing:scroll#add ()
+  let add_page, clear_pages =
+    let notebook = GPack.notebook ~scrollable:true ~packing:layout_lookup#pack () in
+    notebook#set_expand true;
+    let pages = ref [] in
+    let add_page title content =
+      let scroll = GBin.scrolled_window () in
+      scroll#set_expand true;
+      let view = GText.view ~wrap_mode:`WORD ~packing:scroll#add () in
+      view#set_expand true;
+      view#buffer#set_text content;
+      let label = GMisc.label ~text:title () in
+      let idx = notebook#append_page ~tab_label:label#coerce scroll#coerce in
+      pages := idx :: !pages;
+      idx
+    in
+    let clear_pages () =
+      List.iter (fun i -> notebook#remove_page i) !pages
+    in
+    add_page, clear_pages
   in
-  lookupview#set_expand true;
 
   let layout_search = GPack.hbox ~packing:layout_lookup#pack () in
   let search = GEdit.entry ~packing:layout_search#pack () in
@@ -236,7 +251,8 @@ let init () =
           search#set_text text;
           let info = Internal.dict_lookup text in
           let head, body = List.hd info in
-          lookupview#buffer#set_text body;
+          clear_pages ();
+          add_page head body;
           true
       | `MOTION_NOTIFY ->
           (* we'd need a caching way of doing this if we ever want to, otherwise we'd hit
