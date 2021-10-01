@@ -40,3 +40,7 @@ let load () =
   (BatFile.open_in "settings.ini")
   |> BatIO.read_all
   |> I.load settings_spec
+
+let save () =
+  BatFile.open_out "settings.ini"
+  |> fun file -> BatIO.write_string file (I.serialize settings_spec)

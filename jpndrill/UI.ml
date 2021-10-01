@@ -5,19 +5,23 @@ module P = Preferences
 
 let init () =
   let _locale = GtkMain.Main.init () in
-  (* TODO functorize this *)
   (* window *)
-  let width = !P.window_width in
-  let height = !P.window_height in
   let window =
     GWindow.window
     ~title:"JPN Drill"
-    ~width:width
-    ~height:height
     ~position:`CENTER
+    ~resizable:true
     ()
   in
+  window#resize ~width:(!P.window_width) ~height:(!P.window_height);
   let _ = window#connect#destroy ~callback:Main.quit in
+  let _ = window#misc#connect#size_allocate
+    ~callback:(fun rect ->
+      P.window_width := rect.width;
+      P.window_height := rect.height;
+      ()
+    )
+  in
 
   let layout_window = GPack.vbox ~packing:window#add () in
 

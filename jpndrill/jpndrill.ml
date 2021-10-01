@@ -14,7 +14,9 @@ module Main = struct
     in
     Preferences.load ();
     let _ = UI.init () in
-    UI.run ()
+    let _ = UI.run () in
+    Preferences.save ();
+    ()
 
   let () = ui ()
 end
