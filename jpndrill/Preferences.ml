@@ -7,6 +7,10 @@ module R = I.R;;
 let window_width = ref 600
 let window_height = ref 400
 
+(* TODO: write a generic option serializer later *)
+let text_font = ref ""
+let dict_font = ref ""
+
 (* Google Cloud stuff *)
 let gcloud_apikey : string ref = ref ""
 
@@ -21,6 +25,16 @@ let settings_spec : I.t =
       ; { key = "height"
         ; value =
             let module V = R.IntRefReference(struct let value = window_height end) in
+            (module V)
+        }
+      ; { key = "text_font"
+        ; value =
+            let module V = R.StringRefReference(struct let value = text_font end) in
+            (module V)
+        }
+      ; { key = "dict_font"
+        ; value =
+            let module V = R.StringRefReference(struct let value = dict_font end) in
             (module V)
         }
       ]

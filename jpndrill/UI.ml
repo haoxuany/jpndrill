@@ -148,6 +148,11 @@ let init () =
     (fun ~packing -> GText.view ~buffer:buffer_edit ~packing ()) in
   textview#set_monospace true;
   textview#set_justification `CENTER;
+  let () =
+    match !(P.text_font) with
+    | "" -> ()
+    | font -> textview#misc#modify_font_by_name font
+  in
 
   (* tags *)
   let tag name prop =
@@ -162,25 +167,36 @@ let init () =
   let layout_lookup = frame ~label:"Lookup" ~packing:layout_right#pack2
     (fun ~packing -> GPack.vbox ~packing ()) in
 
-  let add_page, clear_pages =
+  let add_page, clear_pages, set_dictionary_font =
     let notebook = GPack.notebook ~scrollable:true ~packing:layout_lookup#pack () in
     notebook#set_expand true;
     let pages = ref [] in
+    let views = ref [] in
+    let set_font font view =
+      match font with
+      | "" -> ()
+      | font -> view#misc#modify_font_by_name font
+    in
     let add_page title content =
       let scroll = GBin.scrolled_window () in
       scroll#set_expand true;
       let view = GText.view ~wrap_mode:`WORD ~packing:scroll#add () in
       view#set_expand true;
       view#buffer#set_text content;
+      set_font !(P.dict_font) view;
+      views := view :: (!views);
       let label = GMisc.label ~text:title () in
       let idx = notebook#append_page ~tab_label:label#coerce scroll#coerce in
       pages := idx :: !pages;
       idx
     in
     let clear_pages () =
-      List.iter (fun i -> notebook#remove_page i) !pages
+      List.iter (fun i -> notebook#remove_page i) !pages;
+      pages := [];
+      views := []
     in
-    add_page, clear_pages
+    let set_font font = List.iter (set_font font) !views in
+    add_page, clear_pages, set_font
   in
 
   let layout_search = GPack.hbox ~packing:layout_lookup#pack () in
@@ -212,11 +228,49 @@ let init () =
       ~title:"Settings" ~modal:true
       ~position:`CENTER
       () in
-    let wlayout = GPack.vbox ~packing:window#add () in
+    let wlayout = GPack.vbox ~spacing:8 ~packing:window#add () in
+    let row =
+      let grid = GPack.grid ~packing:wlayout#add
+        ~row_spacings:8 ~col_spacings:8 ~border_width:16 () in
+      let next =
+        let row = ref 0 in
+        fun () -> let r = !row in row := !row + 1; r
+      in
+      let add text item =
+        let label = GMisc.label ~text () in
+        let top = next () in
+        grid#attach ~left:0 ~top label#coerce;
+        grid#attach ~left:1 ~top item#coerce;
+        item
+      in
+      add
+    in
     (* font settings *)
-    let font = GMisc.font_selection ~packing:wlayout#pack ~show:true () in
-    let text = buffer_edit#get_text () |> String.trim in
-    font#set_preview_text text;
+    let font_for label title font ~callback =
+      let font_button =
+        row label @@ GButton.font_button ~title ()
+      in
+      let () =
+        match font with
+        | "" -> ()
+        | font -> font_button#set_font_name font
+      in
+      let _ = font_button#connect#font_set ~callback:(fun () ->
+        let font = font_button#font_name in
+        callback font
+      ) in
+      ()
+    in
+
+    let () = font_for "Text Font" "Select font for text input"
+      !(P.text_font)
+      ~callback:(fun name -> P.text_font := name; textview#misc#modify_font_by_name name)
+    in
+
+    let () = font_for "Dictionary Font" "Select font for dictionary display"
+      !(P.dict_font)
+      ~callback:(fun name -> P.dict_font := name; set_dictionary_font name)
+    in
 
     window#show ();
     ()
