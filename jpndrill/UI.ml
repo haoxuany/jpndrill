@@ -202,6 +202,15 @@ let init () =
   let layout_search = GPack.hbox ~packing:layout_lookup#pack () in
   let search = GEdit.entry ~packing:layout_search#pack () in
 
+  let lookup_text text =
+    search#set_text text;
+    let info = Internal.dict_lookup text in
+    let head, body = List.hd info in
+    clear_pages ();
+    let _ = add_page head body in
+    ()
+  in
+
   (* action reactions *)
   (* open button clicked *)
   let _ = openbutton#connect#clicked ~callback:(fun () ->
@@ -246,7 +255,7 @@ let init () =
       add
     in
     (* font settings *)
-    let font_for label title font ~callback =
+    let font_for label title font callback =
       let font_button =
         row label @@ GButton.font_button ~title ()
       in
@@ -264,12 +273,12 @@ let init () =
 
     let () = font_for "Text Font" "Select font for text input"
       !(P.text_font)
-      ~callback:(fun name -> P.text_font := name; textview#misc#modify_font_by_name name)
+      (fun name -> P.text_font := name; textview#misc#modify_font_by_name name)
     in
 
     let () = font_for "Dictionary Font" "Select font for dictionary display"
       !(P.dict_font)
-      ~callback:(fun name -> P.dict_font := name; set_dictionary_font name)
+      (fun name -> P.dict_font := name; set_dictionary_font name)
     in
 
     window#show ();
@@ -290,7 +299,8 @@ let init () =
       load_img entry.filepath;
       buffer_edit#set_text text;
       textview#set_buffer buffer_edit;
-      textview#set_editable true
+      textview#set_editable true;
+      ()
   in
 
   (* buffer modified *)
@@ -329,13 +339,11 @@ let init () =
       let stop = iter#forward_to_tag_toggle (Some seg_item) in
       let text = start#get_text ~stop in
       match GdkEvent.get_type event with
-      | `BUTTON_PRESS ->
-          search#set_text text;
-          let info = Internal.dict_lookup text in
-          let head, body = List.hd info in
-          clear_pages ();
-          add_page head body;
-          true
+      | `BUTTON_RELEASE ->
+          (* nope, don't handle this here but in the selection case instead *)
+          if buffer_result#has_selection then ()
+          else lookup_text text;
+          false
       | `MOTION_NOTIFY ->
           (* we'd need a caching way of doing this if we ever want to, otherwise we'd hit
              a request overload. *)
@@ -346,6 +354,24 @@ let init () =
           (*     textview#set_tooltip_text result *)
           (* end; *)
           false
+      | _ -> false
+  ) in
+
+  (* text selected *)
+  let _ = textview#event#connect#button_release ~callback:(
+    fun (button : GdkEvent.Button.t) ->
+      match GdkEvent.Button.button button with
+      | 1 -> (* left mouse button *)
+        (* TODO: remember that we need to check whether we are in edit mode or not *)
+        if buffer_result#has_selection then
+          let from, til = buffer_result#selection_bounds in
+          let text =
+            from#get_text ~stop:til
+            |> String.filter (not % Char.is_whitespace)
+          in
+          lookup_text text
+        else ();
+        false
       | _ -> false
   ) in
 
