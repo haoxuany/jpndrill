@@ -5,11 +5,6 @@ module OCR = GCloudTextRecognition
 module Parse = GCloudNaturalLanguageSyntax
 module Lookup = JishoLookup
 
-let read_dir_files dir =
-  BatSys.readdir dir
-    |> BatArray.to_list
-    |> BatList.filter (fun s -> List.exists (BatString.ends_with s) [".jpg"])
-
 type ocrdata = string
 type segmentdata = Parse.Segment.sentence list
 type id = int
@@ -18,6 +13,7 @@ type entry_state =
   { id : id
   ; filename : string
   ; filepath : string
+  ; created : float
   ; imgdata : string Lwt.t
   ; ocrdata : ocrdata Lwt.t
   ; bufferdata : string ref
@@ -42,9 +38,12 @@ let id =
 let find_entry id = Dict.find id !((!state).entries)
 
 let load_directory dir =
-  let files = read_dir_files dir in
+  let files = BatSys.readdir dir
+    |> BatArray.to_list
+    |> BatList.filter (fun s -> List.exists (BatString.ends_with s) [".jpg"]) in
   let entries = List.map (fun f ->
     let filepath = (String.concat (Filename.dir_sep) [dir ; f]) in
+    let created = (BatUnix.stat filepath).st_ctime in
     let imgdata = Lwt_io.with_file ~mode:Lwt_io.Input filepath Lwt_io.read in
     let bufferdata = ref "" in
     let ocrdata =
@@ -56,6 +55,7 @@ let load_directory dir =
     { id = id ()
     ; filename = f
     ; filepath
+    ; created
     ; imgdata = imgdata
     ; ocrdata = ocrdata
     ; bufferdata = bufferdata
@@ -63,7 +63,7 @@ let load_directory dir =
     }
   ) files in
   state := { entries = ref @@ Dict.of_list @@ List.map (fun e -> (e.id, e)) entries };
-  entries
+  entries |> List.fast_sort (fun a b -> BatFloat.compare a.created b.created)
 
 let fetch_ocr (entry : entry_state) = Lwt_main.run entry.ocrdata
 

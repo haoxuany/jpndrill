@@ -35,8 +35,8 @@ let init () =
   in
 
   (* statusbar *)
-  let statusbar = GMisc.statusbar ~packing:layout_window#pack ~show:true () in
   let (set_status, status_ready) =
+    let statusbar = GMisc.statusbar ~packing:layout_window#pack ~show:true () in
     let status = statusbar#new_context ~name:"Status" in
     let count = ref 0 in
     let remove_all () = for _i = 1 to !count do status#pop () done; count := 0 in
@@ -49,13 +49,21 @@ let init () =
   let layout_left = GPack.vbox ~packing:layout_split#pack1 () in
 
   (* top buttons *)
-  let buttonbox = GPack.hbox ~packing:layout_left#pack () in
-  (* open button *)
-  let openbutton = GButton.button ~label:"Open" ~packing:buttonbox#pack () in
-  (* action button *)
-  let actionbutton = GButton.button ~label:"Action" ~packing:buttonbox#pack () in
-  (* settings button *)
-  let settingsbutton = GButton.button ~label:"Settings" ~packing:buttonbox#pack () in
+  let openbutton, actionbutton, settingsbutton =
+    let toolbar = GButton.toolbar
+      ~orientation:`HORIZONTAL
+      ~style:`ICONS
+      ~show:true
+      ~packing:layout_left#pack
+      ()
+    in
+    let add item = toolbar#insert ~pos:(- 1) item; item in
+    let open GButton in
+    let openbutton = add @@ tool_button ~label:"Open" ~stock:`OPEN () in
+    let actionbutton = add @@ tool_button ~label:"Action" ~stock:`CONVERT () in
+    let settingsbutton = add @@ tool_button ~label:"Settings" ~stock:`PREFERENCES () in
+    openbutton, actionbutton, settingsbutton
+  in
 
   let layout_left = GPack.paned `VERTICAL ~packing:layout_left#pack ~show:true () in
 
@@ -89,19 +97,43 @@ let init () =
   in
 
   (* list *)
-  let columns = new GTree.column_list in
-  let idcol = columns#add Gobject.Data.int in
-  let labelcol = columns#add Gobject.Data.string in
-  columns#lock () ;
+  let add_file_entry, on_selection_changed, with_selection =
+    let columns = new GTree.column_list in
+    let idcol = columns#add Gobject.Data.int in
+    let labelcol = columns#add Gobject.Data.string in
+    columns#lock () ;
 
-  let liststore = GTree.list_store columns in
-  let list = frame ~label:"Files" ~packing:layout_left#pack2
-    (fun ~packing -> GTree.view ~model:liststore ~width:100 ~height:100 ~packing ()) in
-  GTree.view_column ~renderer:(GTree.cell_renderer_text [], ["text", labelcol]) ()
-  |> list#append_column
-  |> ignore;
-
-  let selection = list#selection in
+    let liststore = GTree.list_store columns in
+    let list = frame ~label:"Files" ~packing:layout_left#pack2
+      (fun ~packing -> GTree.view ~model:liststore ~width:100 ~height:100 ~packing ()) in
+    list#set_headers_visible false;
+    GTree.view_column ~renderer:(GTree.cell_renderer_text [], ["text", labelcol]) ()
+    |> list#append_column
+    |> ignore;
+    let selection = list#selection in
+    let with_selection f =
+      match selection#get_selected_rows with
+      | [] -> ()
+      | entry :: _ ->
+          let iter = liststore#get_iter entry in
+          let id = liststore#get ~row:iter ~column:idcol in
+          let entry = Internal.find_entry id in
+          f entry
+    in
+    let on_selection_changed callback =
+      selection#connect#changed
+      ~callback:(fun () -> with_selection callback) in
+    let add ({ filename ; id ; _ } : Internal.entry_state) =
+      let row = liststore#append () in
+      (* The caml compiler ignores my ascription here, even if this is eta expanded. Bug in value restriction? *)
+      (* let set : ('a GTree.column) -> 'a -> unit = *)
+      (*   (fun column value -> liststore#set ~row ~column value) *)
+      (* in *)
+      liststore#set ~row ~column:labelcol filename;
+      liststore#set ~row ~column:idcol id
+    in
+    add, on_selection_changed, with_selection
+  in
 
   (* Right UI *)
   let layout_right = GPack.paned `VERTICAL ~packing:layout_split#pack2 ~show:true () in
@@ -158,7 +190,7 @@ let init () =
   (* open button clicked *)
   let _ = openbutton#connect#clicked ~callback:(fun () ->
     let chooser = GWindow.file_chooser_dialog
-      ~action:`SELECT_FOLDER ~modal:true ~title:"Select your directory of images or cards"
+      ~action:`SELECT_FOLDER ~modal:true ~title:"Select your directory of images"
       () in
     chooser#add_button_stock `CANCEL `CANCEL;
     chooser#add_select_button_stock `OPEN `OPEN;
@@ -170,13 +202,7 @@ let init () =
     chooser#destroy () ;
     (match selected with
     | None -> ()
-    | Some selected ->
-        Internal.load_directory selected |>
-        List.iter (fun (entry : Internal.entry_state) ->
-          let iter = liststore#append () in
-          liststore#set ~row:iter ~column:labelcol entry.filename;
-          liststore#set ~row:iter ~column:idcol entry.id
-        )
+    | Some selected -> Internal.load_directory selected |> List.iter add_file_entry
     )
   ) in
 
@@ -196,19 +222,9 @@ let init () =
     ()
   ) in
 
-  let on_selected f =
-    match selection#get_selected_rows with
-    | [] -> ()
-    | entry :: _ ->
-        let iter = liststore#get_iter entry in
-        let id = liststore#get ~row:iter ~column:idcol in
-        let entry = Internal.find_entry id in
-        f entry
-  in
-
   (* list selected *)
-  let _ = selection#connect#changed ~callback:(fun () ->
-    on_selected (fun entry ->
+  let _ = on_selection_changed @@
+    fun entry ->
       let text =
         match !(entry.bufferdata) with
         | "" ->
@@ -221,18 +237,17 @@ let init () =
       buffer_edit#set_text text;
       textview#set_buffer buffer_edit;
       textview#set_editable true
-    )
-  ) in
+  in
 
   (* buffer modified *)
   let _ = buffer_edit#connect#changed ~callback:(fun () ->
-    on_selected (fun entry ->
+    with_selection (fun entry ->
       Internal.set_buffer entry (buffer_edit#get_text ()))
   ) in
 
   (* action clicked *)
   let _ = actionbutton#connect#clicked ~callback:(fun () ->
-    on_selected (fun entry ->
+    with_selection (fun entry ->
       Internal.fetch_segment entry
       |>
         List.iter (fun sentence ->
