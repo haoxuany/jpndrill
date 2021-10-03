@@ -185,6 +185,7 @@ let init () =
       let textview = GText.view ~packing () in
       textview#set_monospace true;
       textview#set_justification `CENTER;
+      textview#set_vexpand false;
       let () =
         match !(P.text_font) with
         | "" -> ()
@@ -194,6 +195,20 @@ let init () =
     )
   in
   let tag_table = GText.tag_table () in
+  let center () =
+    let buffer = textview#buffer in
+    let start, til = buffer#start_iter, buffer#end_iter in
+    let start, til = (textview#get_iter_location start, textview#get_iter_location til) in
+    let module R = Gdk.Rectangle in
+    let top, bottom = (R.y start, (R.y til) + (R.height til)) in
+    let height = R.height textview#visible_rect in
+    let spacing = (height - (bottom - top)) / 2 in
+    let spacing = Int.max spacing 20 in
+    textview#set_top_margin spacing;
+    textview#set_bottom_margin 20;
+    ()
+  in
+  let _ = textview#misc#connect#size_allocate ~callback:(fun _ -> center ()) in
   let use_edit_buffer, use_result_buffer, if_buffer =
     let buffer_edit = GText.buffer
       ~text:"Select a file from the filelist to get started"
@@ -205,6 +220,7 @@ let init () =
       textview#set_buffer buffer_edit;
       textview#set_editable true;
       current_buffer_edit := true;
+      center ();
       ()
     in
     let use_result f =
@@ -212,12 +228,15 @@ let init () =
       textview#set_buffer buffer_result;
       textview#set_editable false;
       current_buffer_edit := false;
+      center ();
       ()
     in
     (* edit buffer modified *)
     let _ = buffer_edit#connect#changed ~callback:(fun () ->
       with_selection (fun entry ->
-        Internal.set_buffer entry (buffer_edit#get_text ()))
+        Internal.set_buffer entry (buffer_edit#get_text ()));
+      center ();
+      ()
     ) in
     let if_buffer ~edit ~result =
       match !current_buffer_edit with
