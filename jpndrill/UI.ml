@@ -320,26 +320,30 @@ let init () =
       ~position:`CENTER
       () in
     let wlayout = GPack.vbox ~spacing:8 ~packing:window#add () in
-    let row =
-      let grid = GPack.grid ~packing:wlayout#add
-        ~row_spacings:8 ~col_spacings:8 ~border_width:16 () in
-      let next =
-        let row = ref 0 in
-        fun () -> let r = !row in row := !row + 1; r
-      in
-      let add text item =
-        let label = GMisc.label ~text () in
-        let top = next () in
-        grid#attach ~left:0 ~top label#coerce;
-        grid#attach ~left:1 ~top item#coerce;
-        item
-      in
-      add
+    let grid = GPack.grid ~packing:wlayout#add
+      ~row_spacings:8 ~col_spacings:8 ~border_width:16 () in
+    let next =
+      let row = ref 0 in
+      fun () -> let r = !row in row := !row + 1; r
     in
+    let add text item =
+      let label = GMisc.label ~text () in
+      let top = next () in
+      grid#attach ~left:0 ~top label#coerce;
+      grid#attach ~left:1 ~top item#coerce;
+      item
+    in
+
+    (* api key settings *)
+    let apikey = add "GCloud API Key" @@ GEdit.entry ~text:(!(P.gcloud_apikey)) () in
+    let _ = apikey#connect#changed ~callback:(fun () ->
+      P.gcloud_apikey :=  apikey#text
+    ) in
+
     (* font settings *)
     let font_for label title font callback =
       let font_button =
-        row label @@ GButton.font_button ~title ()
+        add label @@ GButton.font_button ~title ()
       in
       let () =
         match font with
