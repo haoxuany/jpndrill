@@ -1,6 +1,5 @@
 open Batteries;;
 open Lwt;;
-open CurlLwt;;
 
 module C = Curl
 

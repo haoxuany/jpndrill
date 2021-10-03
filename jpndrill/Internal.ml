@@ -3,7 +3,19 @@ open Lwt;;
 
 module OCR = GCloudTextRecognition
 module Parse = GCloudNaturalLanguageSyntax
-module Lookup = JishoLookup
+
+module type DICTIONARY = sig
+  type t
+  type page
+
+  val perform : string -> t Lwt.t
+  val pages : t -> page list
+  val name : page -> string
+  val reading : page -> string
+  val rendering : page -> string
+end
+
+module Dictionary : DICTIONARY = JishoDictionary
 
 type ocrdata = string
 type segmentdata = Parse.Segment.sentence list
@@ -90,46 +102,23 @@ let fetch_segment (entry : entry_state) =
   | Some result -> result
 
 let dict_lookup text =
+  let open Dictionary in
   let result = Lwt_main.run @@
     try%lwt
-      Lookup.perform text
+      perform text
     with | e -> Log.log_trace e `error
       (String.concat "" ["Error during dictionary lookup for: " ; text]); raise e
   in
-  let open Lookup in
-  List.map (fun ({ slug ; japanese ; senses ; _}) ->
-    slug,
-    String.concat "\n" @@
-    List.interleave "" @@
-    (String.concat "/"
-      (List.map (fun { word ; reading } ->
-        match word with
-        | None -> reading
-        | Some word -> String.concat "" [word ; " (" ; reading ; ") "]
-      ) japanese
-      )
-    ) ::
-    (List.mapi (fun index { english_definitions ; parts_of_speech } ->
-      String.concat ""
-      [ Int.to_string (index + 1)
-      ; ". "
-      ; String.concat "/" english_definitions
-      ; " ("
-      ; String.concat "," parts_of_speech
-      ; ")"
-      ]
-      ) senses
-    )
-  ) result.data
+  List.map (fun page -> (name page, rendering page)) (pages result)
 
 let pronounce_lookup text =
+  let open Dictionary in
   let result = Lwt_main.run @@
     try%lwt
-      Lookup.perform text
+      perform text
     with | e -> Log.log_trace e `error
       (String.concat "" ["Error during pronounciation lookup for: " ; text]); raise e
   in
-  let open Lookup in
-  match result.data with
-  | { japanese = ({ reading ; _ } :: _) ; _ } :: _ -> Some reading
-  | _ -> None
+  match pages result with
+  | [] -> None
+  | page :: _ -> Some (reading page)
