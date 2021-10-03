@@ -60,6 +60,7 @@ let init () =
     push, (fun () -> push "Ready")
   in
   status_ready ();
+  let () = Log.hook_new_log (fun level msg -> set_status "Error raised, see logs") in
 
   (* Left UI *)
   let layout_left = GPack.vbox ~packing:layout_split#pack1 () in
@@ -102,13 +103,15 @@ let init () =
         ()
     in
     let load_img filename =
+      set_status "Loading Image";
       let buf = GdkPixbuf.from_file filename in
       pixbuf := Some buf;
       let pixbuf_width = GdkPixbuf.get_width buf in
       let pixbuf_height = GdkPixbuf.get_height buf in
       img_inner#misc#set_size_request ~width:pixbuf_width ~height:pixbuf_height ();
       img#misc#set_size_request ~width:pixbuf_width ~height:pixbuf_height ();
-      rescale_img img_inner#misc#allocation
+      rescale_img img_inner#misc#allocation;
+      set_status "Image Loaded"
     in
     let _ = img_inner#misc#connect#size_allocate ~callback:rescale_img in
     load_img
@@ -283,10 +286,12 @@ let init () =
   in
 
   let lookup_text text =
+    set_status "Looking up text";
     search#set_text text;
     let info = Internal.dict_lookup text in
     clear_pages ();
     List.iter (fun (head, body) -> ignore (add_page head body)) info;
+    set_status "Lookup finished";
     ()
   in
 
@@ -317,7 +322,11 @@ let init () =
       chooser#destroy () ;
       (match selected with
       | None -> ()
-      | Some selected -> Internal.load_directory selected |> List.iter add_file_entry
+      | Some selected ->
+          set_status "Loading file list";
+          Internal.load_directory selected |> List.iter add_file_entry;
+          set_status "File list loaded";
+          ()
       )
   ) in
 
@@ -385,6 +394,24 @@ let init () =
       (fun name -> P.dict_font := name; set_dictionary_font name)
     in
 
+    let error = add "Error Log" @@ GButton.button ~label:"Show" () in
+    (* error window *)
+    let show_error =
+      let log = ref [] in
+      let buffer = GText.buffer () in
+      let () = Log.hook_new_log (fun level msg ->
+        log := msg :: !log ;
+        buffer#set_text (String.concat "\n" !log)
+        )
+      in
+      fun () ->
+        let window = GWindow.window ~title:"Error Log" ~modal:true () in
+        let box = GPack.vbox ~border_width:8 ~packing:window#add () in
+        let _view = GText.view ~buffer ~width:200 ~height:200 ~packing:box#add () in
+        window#show ()
+    in
+    let _ = error#connect#clicked ~callback:show_error in
+
     window#show ();
     ()
   ) in
@@ -395,8 +422,10 @@ let init () =
       let text =
         match !(entry.bufferdata) with
         | "" ->
+            set_status "Fetching OCR";
             let text = Internal.fetch_ocr entry in
             Internal.set_buffer entry text;
+            set_status "OCR fetched";
             text
         | text -> text
       in
@@ -411,6 +440,7 @@ let init () =
       ~edit:(fun _ ->
         use_result_buffer (fun buffer ->
           buffer#set_text "";
+          set_status "Segmenting";
           Internal.fetch_segment entry
           |>
             List.iter (fun sentence ->
@@ -424,7 +454,8 @@ let init () =
                   | Some _ -> [seg_item]
                 ) text
               ) |> ignore
-            )
+            );
+          set_status "Segmentation completed";
         )
       )
       ~result:(fun _ -> use_edit_buffer (fun _ -> ()))

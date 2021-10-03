@@ -20,7 +20,7 @@ type jisho_senses =
 
 type jisho_data =
   { slug : string
-  ; is_common : bool
+  ; is_common : bool option [@yojson.option]
   ; tags : string list
   ; japanese : jisho_japanese list
   ; senses : jisho_senses list

@@ -44,13 +44,19 @@ let load_directory dir =
   let entries = List.map (fun f ->
     let filepath = (String.concat (Filename.dir_sep) [dir ; f]) in
     let created = (BatUnix.stat filepath).st_ctime in
-    let imgdata = Lwt_io.with_file ~mode:Lwt_io.Input filepath Lwt_io.read in
+    let imgdata =
+      try%lwt
+        Lwt_io.with_file ~mode:Lwt_io.Input filepath Lwt_io.read
+      with | e -> Log.log_trace e `error (String.concat "" ["Error loading file: " ; filepath]) ; raise e
+    in
     let bufferdata = ref "" in
     let ocrdata =
-      let%lwt imgdata = imgdata in
-      let%lwt result = OCR.perform (CurlLwtGCloud.APIKey !(Preferences.gcloud_apikey)) imgdata in
-      bufferdata := result;
-      return result
+      try%lwt
+        let%lwt imgdata = imgdata in
+        let%lwt result = OCR.perform (CurlLwtGCloud.APIKey !(Preferences.gcloud_apikey)) imgdata in
+        bufferdata := result;
+        return result
+      with | e -> Log.log_trace e `error "Error during OCR fetch"; raise e
     in
     { id = id ()
     ; filename = f
@@ -74,14 +80,22 @@ let set_buffer (entry : entry_state) s =
 let fetch_segment (entry : entry_state) =
   match !(entry.segmentdata) with
   | None ->
-    let result = Lwt_main.run
-      (Parse.perform (CurlLwtGCloud.APIKey !(Preferences.gcloud_apikey)) !(entry.bufferdata)) in
+    let result = Lwt_main.run @@
+      try%lwt
+        Parse.perform (CurlLwtGCloud.APIKey !(Preferences.gcloud_apikey)) !(entry.bufferdata)
+      with | e -> Log.log_trace e `error "Error during natural language segmentation"; raise e
+    in
     entry.segmentdata := Some result;
     result
   | Some result -> result
 
 let dict_lookup text =
-  let result = Lwt_main.run (Lookup.perform text) in
+  let result = Lwt_main.run @@
+    try%lwt
+      Lookup.perform text
+    with | e -> Log.log_trace e `error
+      (String.concat "" ["Error during dictionary lookup for: " ; text]); raise e
+  in
   let open Lookup in
   List.map (fun ({ slug ; japanese ; senses ; _}) ->
     slug,
@@ -109,7 +123,12 @@ let dict_lookup text =
   ) result.data
 
 let pronounce_lookup text =
-  let result = Lwt_main.run (Lookup.perform text) in
+  let result = Lwt_main.run @@
+    try%lwt
+      Lookup.perform text
+    with | e -> Log.log_trace e `error
+      (String.concat "" ["Error during pronounciation lookup for: " ; text]); raise e
+  in
   let open Lookup in
   match result.data with
   | { japanese = ({ reading ; _ } :: _) ; _ } :: _ -> Some reading
