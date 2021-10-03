@@ -459,11 +459,20 @@ let init () =
   ) in
 
   (* search button clicked *)
-  let _ = search_button#connect#clicked ~callback:(fun () ->
+  let perform_search () =
     match search#text with
     | "" -> ()
     | text -> lookup_text text
-  ) in
+  in
+  let _ = search_button#connect#clicked ~callback:perform_search in
+  let _ = search#event#connect#key_release
+    ~callback:(fun key ->
+      if (GdkEvent.Key.keyval key) = GdkKeysyms._Return then
+        perform_search ()
+      else ();
+      false
+    )
+  in
 
   window#show ();
   window
