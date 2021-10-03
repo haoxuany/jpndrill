@@ -114,7 +114,7 @@ let dict_lookup text =
 let external_dictionaries text =
   let text = Curl.escape text in
   [ "Weblio", String.concat "" ["https://www.weblio.jp/content/" ; text]
-  ; "Kotobank", String.concat "" ["https://kotobank.jp/gs/?q=" ; text]
+  ; "Kotobank", String.concat "" ["https://kotobank.jp/word/" ; text]
   ]
 
 let pronounce_lookup text =

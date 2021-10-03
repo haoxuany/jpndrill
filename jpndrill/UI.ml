@@ -308,14 +308,15 @@ let init () =
 
   let layout_search = GPack.hbox ~packing:layout_lookup#pack () in
   let search = GEdit.entry ~packing:layout_search#pack () in
-  let search_button =
+  let stock_button stock =
     let img = GMisc.image () in
     img#set_icon_size `SMALL_TOOLBAR;
-    img#set_stock `FIND;
+    img#set_stock stock;
     let button = GButton.button ~packing:layout_search#pack () in
     button#set_image img#coerce;
     button
   in
+  let search_button = stock_button `FIND in
 
   let lookup_text text =
     set_status "Looking up text";

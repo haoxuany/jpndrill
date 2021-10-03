@@ -10,7 +10,7 @@ type jisho_meta =
 
 type jisho_japanese =
   { word : string option [@yojson.option]
-  ; reading : string
+  ; reading : string option [@yojson.option]
   } [@@deriving of_yojson, show] [@@yojson.allow_extra_fields]
 
 type jisho_senses =

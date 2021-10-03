@@ -12,15 +12,21 @@ let pages ({ data ; _ } : t) = data
 let name ({ slug ; japanese ; _ } : page) =
   match japanese with
   | { word ; reading } :: _ ->
-      begin match word with
-      | None -> reading
-      | Some word -> word
+      begin match word, reading with
+      | Some word, _ -> word
+      | None, Some reading -> reading
+      | None, None -> slug
       end
   | _ -> slug
 
 let reading ({ slug ; japanese ; _ } : page) =
   match japanese with
-  | { reading ; _ } :: _ -> reading
+  | { reading ; word } :: _ ->
+      begin match reading, word with
+      | Some reading, _ -> reading
+      | None, Some word -> word
+      | None, None -> slug
+      end
   | _ -> slug
 
 let rendering ({ slug ; japanese ; senses ; _ } : page) =
@@ -28,9 +34,11 @@ let rendering ({ slug ; japanese ; senses ; _ } : page) =
   List.interleave "" @@
   (String.concat "/"
     (List.map (fun { word ; reading } ->
-      match word with
-      | None -> reading
-      | Some word -> String.concat "" [word ; " (" ; reading ; ") "]
+      match word, reading with
+      | None, Some reading -> reading
+      | Some word, None -> word
+      | Some word, Some reading -> String.concat "" [word ; " (" ; reading ; ") "]
+      | None, None -> slug
     ) japanese
     )
   ) ::
