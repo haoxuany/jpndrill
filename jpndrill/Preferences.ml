@@ -11,6 +11,8 @@ let window_height = ref 400
 let text_font = ref ""
 let dict_font = ref ""
 
+let preserve_aspect_ratio = ref true
+
 (* Google Cloud stuff *)
 let gcloud_apikey : string ref = ref ""
 
@@ -25,6 +27,11 @@ let settings_spec : I.t =
       ; { key = "height"
         ; value =
             let module V = R.IntRefReference(struct let value = window_height end) in
+            (module V)
+        }
+      ; { key = "preserve_aspect_ration"
+        ; value =
+            let module V = R.BoolRefReference(struct let value = preserve_aspect_ratio end) in
             (module V)
         }
       ; { key = "text_font"

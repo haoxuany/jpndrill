@@ -24,14 +24,15 @@ let init () =
   in
 
   let resize_pixbuf pixbuf to_width to_height =
-    (* TODO: check resize mode here *)
     let from_width = GdkPixbuf.get_width pixbuf in
     let from_height = GdkPixbuf.get_height pixbuf in
     let width, height =
-      (* preserve aspect ratio case *)
-      let result_height = from_height * to_width / from_width in
-      if result_height <= to_height then to_width, result_height
-      else (from_width * to_height / from_height), to_height
+      if !(P.preserve_aspect_ratio) then
+        let result_height = from_height * to_width / from_width in
+        if result_height <= to_height then to_width, result_height
+        else (from_width * to_height / from_height), to_height
+      else
+        to_width, to_height
     in
     let result = GdkPixbuf.create ~width ~height () in
     GdkPixbuf.scale ~dest:result ~width ~height pixbuf;
@@ -292,21 +293,32 @@ let init () =
   (* action reactions *)
   (* open button clicked *)
   let _ = openbutton#connect#clicked ~callback:(fun () ->
-    let chooser = GWindow.file_chooser_dialog
-      ~action:`SELECT_FOLDER ~modal:true ~title:"Select your directory of images"
-      () in
-    chooser#add_button_stock `CANCEL `CANCEL;
-    chooser#add_select_button_stock `OPEN `OPEN;
-    let selected =
-      match chooser#run () with
-      | `DELETE_EVENT | `CANCEL -> None
-      | `OPEN -> List.nth_opt chooser#get_filenames 0
-    in
-    chooser#destroy () ;
-    (match selected with
-    | None -> ()
-    | Some selected -> Internal.load_directory selected |> List.iter add_file_entry
-    )
+    match !(P.gcloud_apikey) with
+    | "" ->
+        let msg =
+          GWindow.message_dialog ~buttons:GWindow.Buttons.ok ~message_type:`ERROR
+          ~parent:window ~modal:true ~title:"Error"
+          ~position:`CENTER
+          ~message:"No Google Cloud API Key entered, so all requests will fail. Enter it in Settings first." ()
+        in
+        ignore (msg#run ());
+        msg#destroy ()
+    | _ ->
+      let chooser = GWindow.file_chooser_dialog
+        ~action:`SELECT_FOLDER ~modal:true ~title:"Select your directory of images"
+        () in
+      chooser#add_button_stock `CANCEL `CANCEL;
+      chooser#add_select_button_stock `OPEN `OPEN;
+      let selected =
+        match chooser#run () with
+        | `DELETE_EVENT | `CANCEL -> None
+        | `OPEN -> List.nth_opt chooser#get_filenames 0
+      in
+      chooser#destroy () ;
+      (match selected with
+      | None -> ()
+      | Some selected -> Internal.load_directory selected |> List.iter add_file_entry
+      )
   ) in
 
   (* prev/next buttons *)
@@ -338,6 +350,12 @@ let init () =
     let apikey = add "GCloud API Key" @@ GEdit.entry ~text:(!(P.gcloud_apikey)) () in
     let _ = apikey#connect#changed ~callback:(fun () ->
       P.gcloud_apikey :=  apikey#text
+    ) in
+
+    let aspect_ratio = add "Preserve Aspect Ratio" @@ GButton.check_button () in
+    aspect_ratio#set_active !(P.preserve_aspect_ratio);
+    let _ = aspect_ratio#connect#toggled ~callback:(fun () ->
+      P.preserve_aspect_ratio := aspect_ratio#active
     ) in
 
     (* font settings *)
