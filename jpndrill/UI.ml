@@ -226,13 +226,20 @@ let init () =
 
   let layout_search = GPack.hbox ~packing:layout_lookup#pack () in
   let search = GEdit.entry ~packing:layout_search#pack () in
+  let search_button =
+    let img = GMisc.image () in
+    img#set_icon_size `SMALL_TOOLBAR;
+    img#set_stock `FIND;
+    let button = GButton.button ~packing:layout_search#pack () in
+    button#set_image img#coerce;
+    button
+  in
 
   let lookup_text text =
     search#set_text text;
     let info = Internal.dict_lookup text in
-    let head, body = List.hd info in
     clear_pages ();
-    let _ = add_page head body in
+    List.iter (fun (head, body) -> ignore (add_page head body)) info;
     ()
   in
 
@@ -398,6 +405,13 @@ let init () =
         else ();
         false
       | _ -> false
+  ) in
+
+  (* search button clicked *)
+  let _ = search_button#connect#clicked ~callback:(fun () ->
+    match search#text with
+    | "" -> ()
+    | text -> lookup_text text
   ) in
 
   window#show ();
