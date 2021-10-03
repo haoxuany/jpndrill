@@ -23,6 +23,21 @@ let init () =
     )
   in
 
+  let resize_pixbuf pixbuf to_width to_height =
+    (* TODO: check resize mode here *)
+    let from_width = GdkPixbuf.get_width pixbuf in
+    let from_height = GdkPixbuf.get_height pixbuf in
+    let width, height =
+      (* preserve aspect ratio case *)
+      let result_height = from_height * to_width / from_width in
+      if result_height <= to_height then to_width, result_height
+      else (from_width * to_height / from_height), to_height
+    in
+    let result = GdkPixbuf.create ~width ~height () in
+    GdkPixbuf.scale ~dest:result ~width ~height pixbuf;
+    result
+  in
+
   let layout_window = GPack.vbox ~packing:window#add () in
 
   let layout_split = GPack.paned `HORIZONTAL ~packing:layout_window#pack ~show:true () in
@@ -80,16 +95,16 @@ let init () =
       | None -> ()
       | Some pixbuf ->
         let ({ width ; height } : Gtk.rectangle) = rect in
-        let result = GdkPixbuf.create ~width ~height () in
-        GdkPixbuf.scale ~dest:result ~width ~height pixbuf;
-        img#misc#set_size_request ~width:(GdkPixbuf.get_width pixbuf) ~height:(GdkPixbuf.get_height pixbuf) ();
-        img_inner#misc#set_size_request ~width:(GdkPixbuf.get_width pixbuf) ~height:(GdkPixbuf.get_height pixbuf) ();
-        img#set_pixbuf result;
+        img#set_pixbuf @@ resize_pixbuf pixbuf width height;
         ()
     in
     let load_img filename =
       let buf = GdkPixbuf.from_file filename in
       pixbuf := Some buf;
+      let pixbuf_width = GdkPixbuf.get_width buf in
+      let pixbuf_height = GdkPixbuf.get_height buf in
+      img_inner#misc#set_size_request ~width:pixbuf_width ~height:pixbuf_height ();
+      img#misc#set_size_request ~width:pixbuf_width ~height:pixbuf_height ();
       rescale_img img_inner#misc#allocation
     in
     let _ = img_inner#misc#connect#size_allocate ~callback:rescale_img in
@@ -101,15 +116,17 @@ let init () =
     let columns = new GTree.column_list in
     let idcol = columns#add Gobject.Data.int in
     let labelcol = columns#add Gobject.Data.string in
+    let imgcol = columns#add Gobject.Data.gobject in
     columns#lock () ;
 
     let liststore = GTree.list_store columns in
     let list = frame ~label:"Files" ~packing:layout_left#pack2
       (fun ~packing -> GTree.view ~model:liststore ~width:100 ~height:100 ~packing ()) in
     list#set_headers_visible false;
-    GTree.view_column ~renderer:(GTree.cell_renderer_text [], ["text", labelcol]) ()
-    |> list#append_column
-    |> ignore;
+    List.iter (fun col -> ignore (list#append_column col))
+    [ GTree.view_column ~renderer:(GTree.cell_renderer_text [`XALIGN 0.0], ["text", labelcol]) ()
+    ; GTree.view_column ~renderer:(GTree.cell_renderer_pixbuf [`XALIGN 1.0], ["pixbuf", imgcol]) ()
+    ];
     let selection = list#selection in
     let with_selection f =
       match selection#get_selected_rows with
@@ -123,14 +140,22 @@ let init () =
     let on_selection_changed callback =
       selection#connect#changed
       ~callback:(fun () -> with_selection callback) in
-    let add ({ filename ; id ; _ } : Internal.entry_state) =
+    let add ({ filename ; id ; filepath ; _ } : Internal.entry_state) =
       let row = liststore#append () in
       (* The caml compiler ignores my ascription here, even if this is eta expanded. Bug in value restriction? *)
       (* let set : ('a GTree.column) -> 'a -> unit = *)
       (*   (fun column value -> liststore#set ~row ~column value) *)
       (* in *)
       liststore#set ~row ~column:labelcol filename;
-      liststore#set ~row ~column:idcol id
+      liststore#set ~row ~column:idcol id;
+      let pixbuf =
+        try
+          let pixbuf = GdkPixbuf.from_file filepath in
+          resize_pixbuf pixbuf 100 50
+        with | _e -> list#misc#render_icon ~size:`LARGE_TOOLBAR `DIALOG_ERROR
+      in
+      liststore#set ~row ~column:imgcol pixbuf;
+      ()
     in
     add, on_selection_changed, with_selection
   in
