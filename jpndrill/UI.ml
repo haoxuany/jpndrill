@@ -64,7 +64,7 @@ let init () =
   let layout_left = GPack.vbox ~packing:layout_split#pack1 () in
 
   (* top buttons *)
-  let openbutton, actionbutton, settingsbutton =
+  let openbutton, actionbutton, prevbutton, nextbutton, settingsbutton =
     let toolbar = GButton.toolbar
       ~orientation:`HORIZONTAL
       ~style:`ICONS
@@ -75,9 +75,11 @@ let init () =
     let add item = toolbar#insert ~pos:(- 1) item; item in
     let open GButton in
     let openbutton = add @@ tool_button ~label:"Open" ~stock:`OPEN () in
+    let prevbutton = add @@ tool_button ~label:"Previous" ~stock:`GO_UP () in
+    let nextbutton = add @@ tool_button ~label:"Next" ~stock:`GO_DOWN () in
     let actionbutton = add @@ tool_button ~label:"Action" ~stock:`CONVERT () in
     let settingsbutton = add @@ tool_button ~label:"Settings" ~stock:`PREFERENCES () in
-    openbutton, actionbutton, settingsbutton
+    openbutton, actionbutton, prevbutton, nextbutton, settingsbutton
   in
 
   let layout_left = GPack.paned `VERTICAL ~packing:layout_left#pack ~show:true () in
@@ -112,7 +114,7 @@ let init () =
   in
 
   (* list *)
-  let add_file_entry, on_selection_changed, with_selection =
+  let add_file_entry, on_selection_changed, select_next, select_prev, with_selection =
     let columns = new GTree.column_list in
     let idcol = columns#add Gobject.Data.int in
     let labelcol = columns#add Gobject.Data.string in
@@ -157,7 +159,17 @@ let init () =
       liststore#set ~row ~column:imgcol pixbuf;
       ()
     in
-    add, on_selection_changed, with_selection
+    let select f =
+      match selection#get_selected_rows with
+      | [] -> ()
+      | path :: _ ->
+          match f path with
+          | true -> selection#select_path path
+          | false -> ()
+    in
+    let select_next () = select (fun path -> GtkTree.TreePath.next path; true) in
+    let select_prev () = select GtkTree.TreePath.prev in
+    add, on_selection_changed, select_next, select_prev, with_selection
   in
 
   (* Right UI *)
@@ -296,6 +308,10 @@ let init () =
     | Some selected -> Internal.load_directory selected |> List.iter add_file_entry
     )
   ) in
+
+  (* prev/next buttons *)
+  let _ = prevbutton#connect#clicked ~callback:select_prev in
+  let _ = nextbutton#connect#clicked ~callback:select_next in
 
   (* settings button clicked *)
   let _ = settingsbutton#connect#clicked ~callback:(fun () ->
