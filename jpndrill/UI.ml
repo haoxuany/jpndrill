@@ -329,6 +329,24 @@ let init () =
   in
 
   (* action reactions *)
+  (* actions *)
+  (* TODO: turn this into a toolbar one day *)
+  (* let manager = GAction.ui_manager () in *)
+  (* let group = GAction.action_group ~name:"Main Actions" () in *)
+  (* let () = *)
+  (*   let open GAction in *)
+  (*   add_actions group *)
+  (*   [ add_action "open" ~label:"Open Directory" ~accel:"<Control>f" *)
+  (*   ; add_action "prev" ~label:"Previous" ~accel:"<Control>k" *)
+  (*   ; add_action "next" ~label:"Next" ~accel:"<Control>j" *)
+  (*   ; add_action "perform" ~label:"Segment/Undo" ~accel:"<Control>l" *)
+  (*   ]; *)
+  (*   manager#insert_action_group group 0; *)
+  (*   () *)
+  (* in *)
+  (* let accel = manager#get_accel_group in *)
+  (* window#add_accel_group accel; *)
+
   (* open button clicked *)
   let _ = openbutton#connect#clicked ~callback:(fun () ->
     match !(P.gcloud_apikey) with
