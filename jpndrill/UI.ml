@@ -164,20 +164,54 @@ let init () =
   let layout_right = GPack.paned `VERTICAL ~packing:layout_split#pack2 ~show:true () in
 
   (* main text *)
-  let buffer_edit = GText.buffer
-    ~text:"Select a file from the filelist to get started"
-    () in
-  let tag_table = GText.tag_table () in
-  let buffer_result = GText.buffer ~tag_table () in
   let textview = frame ~label:"Text" ~packing:layout_right#pack1
-    (fun ~packing -> GText.view ~buffer:buffer_edit ~packing ()) in
-  textview#set_monospace true;
-  textview#set_justification `CENTER;
-  let () =
-    match !(P.text_font) with
-    | "" -> ()
-    | font -> textview#misc#modify_font_by_name font
+    (fun ~packing ->
+      let textview = GText.view ~packing () in
+      textview#set_monospace true;
+      textview#set_justification `CENTER;
+      let () =
+        match !(P.text_font) with
+        | "" -> ()
+        | font -> textview#misc#modify_font_by_name font
+      in
+      textview
+    )
   in
+  let tag_table = GText.tag_table () in
+  let use_edit_buffer, use_result_buffer, if_buffer =
+    let buffer_edit = GText.buffer
+      ~text:"Select a file from the filelist to get started"
+      () in
+    let buffer_result = GText.buffer ~tag_table () in
+    let current_buffer_edit = ref true in
+    let use_edit f =
+      f buffer_edit;
+      textview#set_buffer buffer_edit;
+      textview#set_editable true;
+      current_buffer_edit := true;
+      ()
+    in
+    let use_result f =
+      f buffer_result;
+      textview#set_buffer buffer_result;
+      textview#set_editable false;
+      current_buffer_edit := false;
+      ()
+    in
+    (* edit buffer modified *)
+    let _ = buffer_edit#connect#changed ~callback:(fun () ->
+      with_selection (fun entry ->
+        Internal.set_buffer entry (buffer_edit#get_text ()))
+    ) in
+    let if_buffer ~edit ~result =
+      match !current_buffer_edit with
+      | true -> edit buffer_edit
+      | false -> result buffer_result
+    in
+    use_edit, use_result, if_buffer
+  in
+
+  use_edit_buffer (fun _ -> ());
 
   (* tags *)
   let tag name prop =
@@ -329,37 +363,33 @@ let init () =
         | text -> text
       in
       load_img entry.filepath;
-      buffer_edit#set_text text;
-      textview#set_buffer buffer_edit;
-      textview#set_editable true;
-      ()
+      use_edit_buffer (fun buffer -> buffer#set_text text)
   in
-
-  (* buffer modified *)
-  let _ = buffer_edit#connect#changed ~callback:(fun () ->
-    with_selection (fun entry ->
-      Internal.set_buffer entry (buffer_edit#get_text ()))
-  ) in
 
   (* action clicked *)
   let _ = actionbutton#connect#clicked ~callback:(fun () ->
     with_selection (fun entry ->
-      Internal.fetch_segment entry
-      |>
-        List.iter (fun sentence ->
-          sentence |>
-          GCloudNaturalLanguageSyntax.Segment.clean_segment_space |>
-          List.map
-          (fun ({text ; info} : GCloudNaturalLanguageSyntax.Segment.t) ->
-            buffer_result#insert ~tags:(
-              match info with
-              | None -> []
-              | Some _ -> [seg_item]
-            ) text
-          ) |> ignore
-        );
-      textview#set_buffer buffer_result;
-      textview#set_editable false
+      if_buffer
+      ~edit:(fun _ ->
+        use_result_buffer (fun buffer ->
+          buffer#set_text "";
+          Internal.fetch_segment entry
+          |>
+            List.iter (fun sentence ->
+              sentence |>
+              GCloudNaturalLanguageSyntax.Segment.clean_segment_space |>
+              List.map
+              (fun ({text ; info} : GCloudNaturalLanguageSyntax.Segment.t) ->
+                buffer#insert ~tags:(
+                  match info with
+                  | None -> []
+                  | Some _ -> [seg_item]
+                ) text
+              ) |> ignore
+            )
+        )
+      )
+      ~result:(fun _ -> use_edit_buffer (fun _ -> ()))
     )
   ) in
 
@@ -372,9 +402,12 @@ let init () =
       let text = start#get_text ~stop in
       match GdkEvent.get_type event with
       | `BUTTON_RELEASE ->
-          (* nope, don't handle this here but in the selection case instead *)
-          if buffer_result#has_selection then ()
-          else lookup_text text;
+          if_buffer ~edit:(fun _ -> ())
+          ~result:(fun buffer ->
+            (* nope, don't handle this here but in the selection case instead *)
+            if buffer#has_selection then ()
+            else lookup_text text;
+            ());
           false
       | `MOTION_NOTIFY ->
           (* we'd need a caching way of doing this if we ever want to, otherwise we'd hit
@@ -394,15 +427,17 @@ let init () =
     fun (button : GdkEvent.Button.t) ->
       match GdkEvent.Button.button button with
       | 1 -> (* left mouse button *)
-        (* TODO: remember that we need to check whether we are in edit mode or not *)
-        if buffer_result#has_selection then
-          let from, til = buffer_result#selection_bounds in
-          let text =
-            from#get_text ~stop:til
-            |> String.filter (not % Char.is_whitespace)
-          in
-          lookup_text text
-        else ();
+        if_buffer ~edit:(fun _ -> ())
+        ~result:(fun buffer ->
+          if buffer#has_selection then
+            let from, til = buffer#selection_bounds in
+            let text =
+              from#get_text ~stop:til
+              |> String.filter (not % Char.is_whitespace)
+            in
+            lookup_text text
+          else ();
+          ());
         false
       | _ -> false
   ) in
