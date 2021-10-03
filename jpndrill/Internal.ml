@@ -111,6 +111,12 @@ let dict_lookup text =
   in
   List.map (fun page -> (name page, rendering page)) (pages result)
 
+let external_dictionaries text =
+  let text = Curl.escape text in
+  [ "Weblio", String.concat "" ["https://www.weblio.jp/content/" ; text]
+  ; "Kotobank", String.concat "" ["https://kotobank.jp/gs/?q=" ; text]
+  ]
+
 let pronounce_lookup text =
   let open Dictionary in
   let result = Lwt_main.run @@

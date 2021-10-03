@@ -271,15 +271,28 @@ let init () =
       | "" -> ()
       | font -> view#misc#modify_font_by_name font
     in
-    let add_page title content =
+    let add_page name render =
       let scroll = GBin.scrolled_window () in
       scroll#set_expand true;
       let view = GText.view ~wrap_mode:`WORD ~packing:scroll#add () in
       view#set_expand true;
-      view#buffer#set_text content;
+      let buffer = view#buffer in
+      buffer#set_text render;
+      buffer#insert "\n\nOther Dictionaries:";
+      List.iter (fun (sitename, url) ->
+        buffer#insert "\n";
+        let last = buffer#end_iter in
+        let anchor = buffer#create_child_anchor last in
+        view#add_child_at_anchor
+        (GButton.link_button
+          ~label:(String.concat "" ["Search " ; sitename ; " for \"" ; name ; "\""])
+          url ())#coerce
+        anchor;
+        ()
+      ) (Internal.external_dictionaries name);
       set_font !(P.dict_font) view;
       views := view :: (!views);
-      let label = GMisc.label ~text:title () in
+      let label = GMisc.label ~text:name () in
       let idx = notebook#append_page ~tab_label:label#coerce scroll#coerce in
       pages := idx :: !pages;
       idx
@@ -309,7 +322,7 @@ let init () =
     search#set_text text;
     let info = Internal.dict_lookup text in
     clear_pages ();
-    List.iter (fun (head, body) -> ignore (add_page head body)) info;
+    List.iter (fun (name, render) -> ignore (add_page name render)) info;
     set_status "Lookup finished";
     ()
   in
