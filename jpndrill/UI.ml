@@ -271,7 +271,9 @@ let init () =
       | "" -> ()
       | font -> view#misc#modify_font_by_name font
     in
-    let add_page name render =
+    let add_page page =
+      let name = Internal.Dictionary.name page in
+      let render = Internal.Dictionary.rendering page in
       let scroll = GBin.scrolled_window () in
       scroll#set_expand true;
       let view = GText.view ~wrap_mode:`WORD ~packing:scroll#add () in
@@ -292,8 +294,20 @@ let init () =
       ) (Internal.external_dictionaries name);
       set_font !(P.dict_font) view;
       views := view :: (!views);
-      let label = GMisc.label ~text:name () in
+      let label =
+        let box = GBin.event_box () in
+        let _ = GMisc.label ~text:name ~packing:box#add () in
+        box
+      in
       let idx = notebook#append_page ~tab_label:label#coerce scroll#coerce in
+      let _ = label#event#connect#any ~callback:(
+        fun event ->
+          match GdkEvent.get_type event with
+          | `TWO_BUTTON_PRESS ->
+              Internal.add_to_dictionary page;
+              false
+          | _ -> false
+      ) in
       pages := idx :: !pages;
       idx
     in
@@ -323,7 +337,7 @@ let init () =
     search#set_text text;
     let info = Internal.dict_lookup text in
     clear_pages ();
-    List.iter (fun (name, render) -> ignore (add_page name render)) info;
+    List.iter (fun page -> ignore (add_page page)) info;
     set_status "Lookup finished";
     ()
   in

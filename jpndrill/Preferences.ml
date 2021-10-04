@@ -16,6 +16,9 @@ let preserve_aspect_ratio = ref true
 (* Google Cloud stuff *)
 let gcloud_apikey : string ref = ref ""
 
+(* Paths *)
+let dictionary_path : string ref = ref "./dictionary.dict"
+
 let settings_spec : I.t =
   [ { header = "window"
     ; fields =
@@ -51,6 +54,15 @@ let settings_spec : I.t =
       [ { key = "key"
         ; value =
             let module V = R.StringRefReference(struct let value = gcloud_apikey end) in
+            (module V)
+        }
+      ]
+    }
+  ; { header = "paths"
+    ; fields =
+      [ { key = "personal_dictionary"
+        ; value =
+            let module V = R.StringRefReference(struct let value = dictionary_path end) in
             (module V)
         }
       ]

@@ -17,6 +17,8 @@ end
 
 module Dictionary : DICTIONARY = JishoDictionary
 
+module PD = PersonalDictionary
+
 type ocrdata = string
 type segmentdata = Parse.Segment.sentence list
 type id = int
@@ -39,15 +41,28 @@ end)
 
 type ui_state =
 { entries : entry_state Dict.t ref
+; dictionary : PD.t ref
 }
 
-let state = ref { entries = ref Dict.empty }
+let load_dictionary () =
+  let path = !(Preferences.dictionary_path) in
+  if BatSys.file_exists path
+  then PD.load path
+  else
+    let pd = PD.new_dictionary path in
+    PD.save pd;
+    pd
+
+let state =
+  { entries = ref Dict.empty
+  ; dictionary = ref @@ load_dictionary ()
+  }
 
 let id =
   let counter = ref 0 in
   (fun () -> counter := !counter + 1 ; !counter)
 
-let find_entry id = Dict.find id !((!state).entries)
+let find_entry id = Dict.find id !(state.entries)
 
 let load_directory dir =
   let files = BatSys.readdir dir
@@ -80,7 +95,7 @@ let load_directory dir =
     ; segmentdata = ref None
     }
   ) files in
-  state := { entries = ref @@ Dict.of_list @@ List.map (fun e -> (e.id, e)) entries };
+  state.entries := Dict.of_list @@ List.map (fun e -> (e.id, e)) entries;
   entries |> List.fast_sort (fun a b -> BatFloat.compare a.created b.created)
 
 let fetch_ocr (entry : entry_state) = Lwt_main.run entry.ocrdata
@@ -109,7 +124,7 @@ let dict_lookup text =
     with | e -> Log.log_trace e `error
       (String.concat "" ["Error during dictionary lookup for: " ; text]); raise e
   in
-  List.map (fun page -> (name page, rendering page)) (pages result)
+  pages result
 
 let external_dictionaries text =
   let text = Curl.escape text in
@@ -128,3 +143,15 @@ let pronounce_lookup text =
   match pages result with
   | [] -> None
   | page :: _ -> Some (reading page)
+
+let add_to_dictionary page =
+  let _, dict = PD.add_entry !(state.dictionary)
+    ({ name = Dictionary.name page
+    ; pronounciation = Some (Dictionary.reading page)
+    ; render = Some (Dictionary.rendering page)
+    ; context = { images = [] }
+    } : PD.entry)
+  in
+  state.dictionary := dict;
+  PD.save dict;
+  ()
