@@ -292,22 +292,22 @@ let init () =
         anchor;
         ()
       ) (Internal.external_dictionaries name);
-      set_font !(P.dict_font) view;
-      views := view :: (!views);
-      let label =
-        let box = GBin.event_box () in
-        let _ = GMisc.label ~text:name ~packing:box#add () in
+      buffer#insert "\n\nAdd to Personal Dictionary:\n";
+      let pd_box =
+        let box = GButton.button ~label:"Add" () in
+        let _ = box#connect#clicked ~callback:(
+          fun () ->
+            Internal.add_to_dictionary page
+        ) in
+        let last = buffer#end_iter in
+        let anchor = buffer#create_child_anchor last in
+        view#add_child_at_anchor box#coerce anchor;
         box
       in
+      set_font !(P.dict_font) view;
+      views := view :: (!views);
+      let label = GMisc.label ~text:name () in
       let idx = notebook#append_page ~tab_label:label#coerce scroll#coerce in
-      let _ = label#event#connect#any ~callback:(
-        fun event ->
-          match GdkEvent.get_type event with
-          | `TWO_BUTTON_PRESS ->
-              Internal.add_to_dictionary page;
-              false
-          | _ -> false
-      ) in
       pages := idx :: !pages;
       idx
     in
