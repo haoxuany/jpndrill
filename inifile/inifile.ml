@@ -18,7 +18,7 @@ let serialize (sections : t) =
     let module Value = (val value) in
     String.concat "" [key ; "=" ; Value.serialize (Value.get Value.reference)]
   in
-  String.concat "\n" (
+  String.concat "\n\n" (
     List.map (fun { header ; fields } ->
       String.concat "\n"
       ((String.concat "" ["[" ; header ; "]"]) :: (List.map serialize_field fields))

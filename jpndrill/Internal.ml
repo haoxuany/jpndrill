@@ -41,21 +41,12 @@ end)
 
 type ui_state =
 { entries : entry_state Dict.t ref
-; dictionary : PD.t ref
+; dictionary : PD.t option ref
 }
-
-let load_dictionary () =
-  let path = !(Preferences.dictionary_path) in
-  if BatSys.file_exists path
-  then PD.load path
-  else
-    let pd = PD.new_dictionary path in
-    PD.save pd;
-    pd
 
 let state =
   { entries = ref Dict.empty
-  ; dictionary = ref @@ load_dictionary ()
+  ; dictionary = ref @@ None
   }
 
 let id =
@@ -144,14 +135,31 @@ let pronounce_lookup text =
   | [] -> None
   | page :: _ -> Some (reading page)
 
+let load_dictionary () =
+  let path = !(Preferences.dictionary_path) in
+  if BatSys.file_exists path
+  then PD.load path
+  else
+    let pd = PD.new_dictionary path in
+    PD.save pd;
+    pd
+
 let add_to_dictionary page =
-  let _, dict = PD.add_entry !(state.dictionary)
+  let dict =
+    match !(state.dictionary) with
+    | None ->
+        let dict = load_dictionary () in
+        state.dictionary := Some dict;
+        dict
+    | Some dict -> dict
+  in
+  let _, dict = PD.add_entry dict
     ({ name = Dictionary.name page
     ; pronounciation = Some (Dictionary.reading page)
     ; render = Some (Dictionary.rendering page)
     ; context = { images = [] }
     } : PD.entry)
   in
-  state.dictionary := dict;
+  state.dictionary := Some dict;
   PD.save dict;
   ()
