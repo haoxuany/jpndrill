@@ -74,13 +74,10 @@ let settings_name = "settings.ini"
 let load () =
   if BatSys.file_exists settings_name
   then
-    let file = BatFile.open_in "settings.ini" in
-    BatIO.read_all file
-    |> I.load settings_spec;
-    BatIO.close_in file
+    BatFile.with_file_in settings_name
+    (I.load settings_spec % BatIO.read_all)
   else ()
 
 let save () =
-  let file = BatFile.open_out "settings.ini" in
-  BatIO.write_string file (I.serialize settings_spec);
-  BatIO.close_out file
+  BatFile.with_file_out settings_name
+  (fun file -> BatIO.write_line file (I.serialize settings_spec))
