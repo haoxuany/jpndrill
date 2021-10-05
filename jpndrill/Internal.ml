@@ -136,23 +136,24 @@ let pronounce_lookup text =
   | page :: _ -> Some (reading page)
 
 let load_dictionary () =
-  let path = !(Preferences.dictionary_path) in
-  if BatSys.file_exists path
-  then PD.load path
-  else
-    let pd = PD.new_dictionary path in
-    PD.save pd;
+  match !(state.dictionary) with
+  | None ->
+    let path = !(Preferences.dictionary_path) in
+    let pd =
+      if BatSys.file_exists path
+      then PD.load path
+      else
+        let pd = PD.new_dictionary path in
+        PD.save pd;
+        pd
+    in
+    state.dictionary := Some pd;
     pd
+  | Some dict -> dict
+
 
 let add_to_dictionary ~name ~reading ~meaning ~image =
-  let dict =
-    match !(state.dictionary) with
-    | None ->
-        let dict = load_dictionary () in
-        state.dictionary := Some dict;
-        dict
-    | Some dict -> dict
-  in
+  let dict = load_dictionary () in
   let image =
     match image with
     | None -> []

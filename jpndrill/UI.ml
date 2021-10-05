@@ -351,6 +351,7 @@ let init () =
 
   let layout_search = GPack.hbox ~packing:layout_lookup#pack () in
   let search = GEdit.entry ~packing:layout_search#pack () in
+  search#set_hexpand true;
   let stock_button stock =
     let img = GMisc.image () in
     img#set_icon_size `SMALL_TOOLBAR;
@@ -360,6 +361,7 @@ let init () =
     button
   in
   let search_button = stock_button `FIND in
+  let dictionary_button = stock_button `PAGE_SETUP in
 
   let lookup_text text =
     set_status "Looking up text";
@@ -620,6 +622,10 @@ let init () =
       false
     )
   in
+  let _ = dictionary_button#connect#clicked ~callback:(fun () ->
+    let window = DictUI.init (Internal.load_dictionary ()) in
+    DictUI.run window
+  ) in
 
   window#show ();
   window
