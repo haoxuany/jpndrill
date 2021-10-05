@@ -1,10 +1,9 @@
 open Batteries;;
-open GMain;;
 
 module P = Preferences
+module Dictionary = Internal.Dictionary
 
 let init () =
-  let _locale = GtkMain.Main.init () in
   (* window *)
   let window =
     GWindow.window
@@ -14,7 +13,7 @@ let init () =
     ()
   in
   window#resize ~width:(!P.window_width) ~height:(!P.window_height);
-  let _ = window#connect#destroy ~callback:Main.quit in
+  let _ = window#connect#destroy ~callback:GMain.Main.quit in
   let _ = window#misc#connect#size_allocate
     ~callback:(fun rect ->
       P.window_width := rect.width;
@@ -292,17 +291,47 @@ let init () =
         anchor;
         ()
       ) (Internal.external_dictionaries name);
-      buffer#insert "\n\nAdd to Personal Dictionary:\n";
-      let pd_box =
-        let box = GButton.button ~label:"Add" () in
-        let _ = box#connect#clicked ~callback:(
+      buffer#insert "\n\n";
+      let () =
+        let frame = GBin.expander
+          ~label:"Add to Personal Dictionary:"
+          ~border_width:4
+          ()
+        in
+        frame#set_hexpand true;
+        frame#set_expanded true;
+        let box = GPack.vbox ~spacing:8 ~border_width:8 ~packing:frame#add () in
+        let reading = GButton.check_button ~label:"Pronounciation"
+          ~active:true
+          ~packing:box#pack ()
+        in
+        let meaning = GButton.check_button ~label:"Meaning"
+          ~active:true
+          ~packing:box#pack ()
+        in
+        let image = GButton.check_button ~label:"Attach Image"
+          ~active:true
+          ~packing:box#pack ()
+        in
+        let button = GButton.button ~label:"Add" ~packing:box#pack () in
+        let _ = button#connect#clicked ~callback:(
           fun () ->
-            Internal.add_to_dictionary page
+            with_selection (fun entry ->
+              let pull_checked checkbox f =
+                match checkbox#active with
+                | true -> Some (f ())
+                | false -> None
+              in
+              Internal.add_to_dictionary
+                ~name:(Dictionary.name page)
+                ~reading:(pull_checked reading (fun () -> Dictionary.reading page))
+                ~meaning:(pull_checked meaning (fun () -> Dictionary.rendering page))
+                ~image:(pull_checked image (fun () -> entry))
+            )
         ) in
         let last = buffer#end_iter in
         let anchor = buffer#create_child_anchor last in
-        view#add_child_at_anchor box#coerce anchor;
-        box
+        view#add_child_at_anchor frame#coerce anchor
       in
       set_font !(P.dict_font) view;
       views := view :: (!views);
@@ -594,6 +623,3 @@ let init () =
 
   window#show ();
   window
-
-let run () =
-  Main.main ()

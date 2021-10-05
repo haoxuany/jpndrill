@@ -10,8 +10,9 @@ module Main = struct
       global_init CURLINIT_GLOBALALL
     in
     Preferences.load ();
+    let _locale = GtkMain.Main.init () in
     let _ = UI.init () in
-    let _ = UI.run () in
+    let _ = GMain.Main.main () in
     Preferences.save ();
     ()
 

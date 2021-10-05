@@ -144,7 +144,7 @@ let load_dictionary () =
     PD.save pd;
     pd
 
-let add_to_dictionary page =
+let add_to_dictionary ~name ~reading ~meaning ~image =
   let dict =
     match !(state.dictionary) with
     | None ->
@@ -153,11 +153,16 @@ let add_to_dictionary page =
         dict
     | Some dict -> dict
   in
+  let image =
+    match image with
+    | None -> []
+    | Some image -> [Lwt_main.run image.imgdata]
+  in
   let _, dict = PD.add_entry dict
-    ({ name = Dictionary.name page
-    ; pronounciation = Some (Dictionary.reading page)
-    ; render = Some (Dictionary.rendering page)
-    ; context = { images = [] }
+    ({ name = name
+    ; pronounciation = reading
+    ; render = meaning
+    ; context = { images = image }
     } : PD.entry)
   in
   state.dictionary := Some dict;
