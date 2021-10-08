@@ -126,7 +126,9 @@ let init () =
 
     let liststore = GTree.list_store columns in
     let list = frame ~label:"Files" ~packing:layout_left#pack2
-      (fun ~packing -> GTree.view ~model:liststore ~width:100 ~height:100 ~packing ()) in
+      (fun ~packing ->
+        let scroll = GBin.scrolled_window ~packing () in
+        GTree.view ~model:liststore ~width:100 ~height:100 ~packing:scroll#add ()) in
     list#set_headers_visible false;
     List.iter (fun col -> ignore (list#append_column col))
     [ GTree.view_column ~renderer:(GTree.cell_renderer_text [`XALIGN 0.0], ["text", labelcol]) ()
@@ -181,7 +183,8 @@ let init () =
   (* main text *)
   let textview = frame ~label:"Text" ~packing:layout_right#pack1
     (fun ~packing ->
-      let textview = GText.view ~packing () in
+      let scroll = GBin.scrolled_window ~packing () in
+      let textview = GText.view ~packing:scroll#add () in
       textview#set_monospace true;
       textview#set_justification `CENTER;
       textview#set_vexpand false;
@@ -258,7 +261,7 @@ let init () =
 
   (* lookup *)
   let layout_lookup = frame ~label:"Lookup" ~packing:layout_right#pack2
-    (fun ~packing -> GPack.vbox ~packing ()) in
+    (fun ~packing -> GPack.vbox ~packing ~height:60 ()) in
 
   let add_page, clear_pages, set_dictionary_font =
     let notebook = GPack.notebook ~scrollable:true ~packing:layout_lookup#pack () in

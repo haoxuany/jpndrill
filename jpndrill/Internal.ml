@@ -58,10 +58,16 @@ let find_entry id = Dict.find id !(state.entries)
 let load_directory dir =
   let files = BatSys.readdir dir
     |> BatArray.to_list
-    |> BatList.filter (fun s -> List.exists (BatString.ends_with s) [".jpg"]) in
+    |> BatList.filter (fun s -> List.exists (BatString.ends_with s)
+      [ ".jpg"
+      ; ".jpeg"
+      ; ".bmp"
+      ; ".gif"
+      ; ".png"
+      ]) in
   let entries = List.map (fun f ->
     let filepath = (String.concat (Filename.dir_sep) [dir ; f]) in
-    let created = (BatUnix.stat filepath).st_ctime in
+    let created = (BatUnix.stat filepath).st_mtime in
     let imgdata =
       try%lwt
         Lwt_io.with_file ~mode:Lwt_io.Input filepath Lwt_io.read
@@ -72,6 +78,7 @@ let load_directory dir =
       try%lwt
         let%lwt imgdata = imgdata in
         let%lwt result = OCR.perform (CurlLwtGCloud.APIKey !(Preferences.gcloud_apikey)) imgdata in
+        let result = String.trim result in
         bufferdata := result;
         return result
       with | e -> Log.log_trace e `error "Error during OCR fetch"; raise e
@@ -86,8 +93,9 @@ let load_directory dir =
     ; segmentdata = ref None
     }
   ) files in
+  let entries = List.fast_sort (fun a b -> BatFloat.compare a.created b.created) entries in
   state.entries := Dict.of_list @@ List.map (fun e -> (e.id, e)) entries;
-  entries |> List.fast_sort (fun a b -> BatFloat.compare a.created b.created)
+  entries
 
 let fetch_ocr (entry : entry_state) = Lwt_main.run entry.ocrdata
 
