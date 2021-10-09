@@ -11,6 +11,9 @@ let window_height = ref 400
 let text_font = ref ""
 let dict_font = ref ""
 
+let dictionary_width = ref 500
+let dictionary_height = ref 500
+
 let preserve_aspect_ratio = ref true
 
 (* Google Cloud stuff *)
@@ -45,6 +48,16 @@ let settings_spec : I.t =
       ; { key = "dict_font"
         ; value =
             let module V = R.StringRefReference(struct let value = dict_font end) in
+            (module V)
+        }
+      ; { key = "dict_width"
+        ; value =
+            let module V = R.IntRefReference(struct let value = dictionary_width end) in
+            (module V)
+        }
+      ; { key = "dict_height"
+        ; value =
+            let module V = R.IntRefReference(struct let value = dictionary_height end) in
             (module V)
         }
       ]
