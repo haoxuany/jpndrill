@@ -125,10 +125,12 @@ let dict_lookup text =
   in
   pages result
 
-let external_dictionaries text =
-  let text = Curl.escape text in
-  [ "Weblio", String.concat "" ["https://www.weblio.jp/content/" ; text]
-  ; "Kotobank", String.concat "" ["https://kotobank.jp/word/" ; text]
+let external_dictionaries page =
+  let name = Dictionary.name page |> Curl.escape in
+  let reading = Dictionary.reading page |> Curl.escape in
+  [ "OJAD", String.concat "" ["http://www.gavo.t.u-tokyo.ac.jp/ojad/search/index/word:" ; reading]
+  ; "Weblio", String.concat "" ["https://www.weblio.jp/content/" ; name]
+  ; "Kotobank", String.concat "" ["https://kotobank.jp/word/" ; name]
   ]
 
 let pronounce_lookup text =

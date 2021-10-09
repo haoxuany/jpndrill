@@ -293,7 +293,7 @@ let init () =
           url ())#coerce
         anchor;
         ()
-      ) (Internal.external_dictionaries name);
+      ) (Internal.external_dictionaries page);
       buffer#insert "\n\n";
       let () =
         let frame = GBin.expander
