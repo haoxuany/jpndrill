@@ -92,6 +92,9 @@ let init dictionary =
     liststore#set ~row ~column:labelcol ((Dictionary.entry data).name);
     ()
   in
+
+  let images_displayed = ref [] in
+
   let _ = selection#connect#changed ~callback:(fun () ->
     with_selection (fun (entry : Dictionary.entry) ->
       let buffer = textview#buffer in
@@ -112,6 +115,7 @@ let init dictionary =
             buffer#insert "\n\n"
       end;
       begin
+        images_displayed := [];
         match entry.context.images with
         | [] -> ()
         | images ->
@@ -126,14 +130,33 @@ let init dictionary =
                     filename
                   ) in
                 let last = buffer#end_iter in
-                let pixbuf = GdkPixbuf.from_file file in
-                buffer#insert_pixbuf ~iter:last ~pixbuf
+                let anchor = buffer#create_child_anchor last in
+                let pixbuf = ref @@ GdkPixbuf.from_file file in
+                let image = GMisc.image ~pixbuf:!pixbuf () in
+                images_displayed := (pixbuf, image) :: !images_displayed;
+                textview#add_child_at_anchor image#coerce anchor;
+                ()
               with | _ -> buffer#insert "Error rendering image";
               ()
             ) images
       end;
       ()
     )
+  ) in
+
+  let _ = textview#misc#connect#size_allocate ~callback:(
+    fun ({ width ; height ; _ } : Gtk.rectangle) ->
+      List.iter (fun (pixbuf, image) ->
+        let pixbuf_width = GdkPixbuf.get_width !pixbuf in
+        if pixbuf_width < width then
+          image#set_pixbuf !pixbuf
+        else
+          let pixbuf_height = GdkPixbuf.get_height !pixbuf in
+          let height = pixbuf_height * width / pixbuf_width in
+          let result = GdkPixbuf.create ~width ~height () in
+          GdkPixbuf.scale ~dest:result ~width ~height !pixbuf;
+          image#set_pixbuf result
+      ) !images_displayed
   ) in
 
   Dictionary.Map.iter add (dictionary : Dictionary.t).data;
