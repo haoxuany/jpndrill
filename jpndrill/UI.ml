@@ -105,10 +105,6 @@ let init () =
       set_status "Loading Image";
       let buf = GdkPixbuf.from_file filename in
       pixbuf := Some buf;
-      let pixbuf_width = GdkPixbuf.get_width buf in
-      let pixbuf_height = GdkPixbuf.get_height buf in
-      img_inner#misc#set_size_request ~width:pixbuf_width ~height:pixbuf_height ();
-      img#misc#set_size_request ~width:pixbuf_width ~height:pixbuf_height ();
       rescale_img img_inner#misc#allocation;
       set_status "Image Loaded"
     in
