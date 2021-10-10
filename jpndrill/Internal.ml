@@ -103,6 +103,7 @@ let set_buffer (entry : entry_state) s =
   entry.bufferdata := s;
   entry.segmentdata := None
 
+type segment = Parse.Segment.t
 let fetch_segment (entry : entry_state) =
   match !(entry.segmentdata) with
   | None ->
@@ -111,6 +112,7 @@ let fetch_segment (entry : entry_state) =
         Parse.perform (CurlLwtGCloud.APIKey !(Preferences.gcloud_apikey)) !(entry.bufferdata)
       with | e -> Log.log_trace e `error "Error during natural language segmentation"; raise e
     in
+    let result = List.map Parse.Segment.clean_segment_space result in
     entry.segmentdata := Some result;
     result
   | Some result -> result

@@ -588,17 +588,18 @@ let init () =
           set_status "Segmenting";
           Internal.fetch_segment entry
           |>
-            List.iter (fun sentence ->
-              sentence |>
-              GCloudNaturalLanguageSyntax.Segment.clean_segment_space |>
-              List.map
-              (fun ({text ; info} : GCloudNaturalLanguageSyntax.Segment.t) ->
-                buffer#insert ~tags:(
-                  match info with
-                  | None -> []
-                  | Some _ -> [seg_item]
-                ) text
-              ) |> ignore
+            List.iter (
+              List.iter
+              (fun ({text ; info} : Internal.segment) ->
+                try
+                  buffer#insert ~tags:(
+                    match info with
+                    | None -> []
+                    | Some _ -> [seg_item]
+                  ) text
+                with | e -> Log.log_trace e `error
+                  (String.concat "" ["Error inserting text of: " ; text ; "\n"])
+              )
             );
           set_status "Segmentation completed";
         )

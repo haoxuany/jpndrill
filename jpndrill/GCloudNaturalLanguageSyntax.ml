@@ -64,10 +64,15 @@ module Segment = struct
   let rec clean_segment_space (segs : sentence) =
     match segs with
     | [] -> []
-    | ({ info = info1 } as seg1) :: (({ info = info2 } :: _) as tail) ->
+    | ({ info = info1 ; text = text1 } as seg1) ::
+      (({ info = info2 ; text = text2 } :: rest) as tail) ->
         begin
           match info1, info2 with
           | Some _, Some _ -> seg1 :: (empty " ") :: clean_segment_space tail
+          | None, None ->
+              clean_segment_space @@
+              { text = String.concat "" [text1 ; text2] ; info = None}
+              :: rest
           | _, _ -> seg1 :: clean_segment_space tail
         end
     | [_] -> segs
@@ -111,7 +116,7 @@ let perform auth text =
       in
       sentences
         |> List.map (fun ({ text = { content ; beginOffset = offset }} : sentence) ->
-            let length = String.length content in
+            let length = offset + String.length content in
             let unparsed from til : S.t =
               S.empty (String.sub content from (til - from))
             in
