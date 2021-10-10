@@ -16,6 +16,7 @@ type jisho_japanese =
 type jisho_senses =
   { english_definitions : string list
   ; parts_of_speech : string list
+  ; tags : string list
   } [@@deriving of_yojson, show] [@@yojson.allow_extra_fields]
 
 type jisho_data =

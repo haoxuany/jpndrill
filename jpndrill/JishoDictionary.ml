@@ -9,11 +9,21 @@ let perform = perform
 
 let pages ({ data ; _ } : t) = data
 
-let name ({ slug ; japanese ; _ } : page) =
+let name ({ slug ; japanese ; senses ; _ } : page) =
   match japanese with
   | { word ; reading } :: _ ->
       begin match word, reading with
-      | Some word, _ -> word
+      | Some word, Some reading ->
+          if List.exists
+            (fun ({ tags ; _ } : jisho_senses) ->
+              List.exists
+              (String.equal "Usually written using kana alone")
+              tags
+            )
+            senses
+          then reading
+          else word
+      | Some word, None -> word
       | None, Some reading -> reading
       | None, None -> slug
       end
@@ -42,7 +52,7 @@ let rendering ({ slug ; japanese ; senses ; _ } : page) =
     ) japanese
     )
   ) ::
-  (List.mapi (fun index { english_definitions ; parts_of_speech } ->
+  (List.mapi (fun index { english_definitions ; parts_of_speech ; tags } ->
     String.concat ""
     [ Int.to_string (index + 1)
     ; ". "
@@ -50,6 +60,9 @@ let rendering ({ slug ; japanese ; senses ; _ } : page) =
     ; " ("
     ; String.concat "," parts_of_speech
     ; ")"
+    ; if List.is_empty tags
+      then ""
+      else String.concat "" [" [" ; String.concat ", " tags ; "]"]
     ]
     ) senses
   )
