@@ -106,7 +106,7 @@ module Serialize = struct
           let idx = !img_count in
           img_count := !img_count + 1;
           let filename = img idx in
-          add_entry image file filename;
+          add_entry ~level:9 image file filename;
           filename
         ) images in
       let json =
