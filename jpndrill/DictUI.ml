@@ -46,6 +46,7 @@ let init dictionary dictionary_change =
     textview#set_monospace true;
     textview#set_expand true;
     textview#set_wrap_mode `WORD;
+    textview#set_editable false;
     let () =
       match font () with
       | None -> ()
@@ -148,17 +149,46 @@ let init dictionary dictionary_change =
 
   let _ = list#event#connect#key_press ~callback:(fun key ->
     let key = GdkEvent.Key.keyval key in
-    if key = GdkKeysyms._Delete then
-      begin
+    let select f default =
+      match selection#get_selected_rows with
+      | [] -> default ()
+      | path :: _ ->
+          match f path with
+          | true -> selection#select_path path
+          | false -> ()
+    in
+    if key = GdkKeysyms._Delete || key = GdkKeysyms._BackSpace then
       with_selection (fun handle _ ->
         List.iter
         (fun path -> liststore#remove @@ liststore#get_iter path |> ignore)
         list#selection#get_selected_rows;
         dictionary := Dictionary.remove_entry !dictionary handle
-      );
-      false
-      end
-    else false
+      )
+    else
+    if key = GdkKeysyms._Down || key = GdkKeysyms._j then
+      select
+      (fun path -> GtkTree.TreePath.next path; true)
+      (fun () ->
+        begin
+          match liststore#get_iter_first with
+          | None -> ()
+          | Some iter -> selection#select_iter iter
+        end)
+    else
+    if key = GdkKeysyms._Up || key = GdkKeysyms._k then
+      select GtkTree.TreePath.prev
+      (fun () ->
+        (* this is really dumb cause lablgtk didn't have bindings for the end iterator *)
+        let last = ref None in
+        liststore#foreach (fun path _ -> last := Some path ; false);
+        begin
+          match !last with
+          | None -> ()
+          | Some path -> selection#select_path path
+        end
+      )
+    else ();
+    true
   ) in
 
   let _ = textview#misc#connect#size_allocate ~callback:(
