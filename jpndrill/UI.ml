@@ -489,6 +489,56 @@ let init () =
       (fun name -> P.dict_font := name; set_dictionary_font name)
     in
 
+    (* the file chooser dialog button signals are not bound correctly in lablgtk, as
+       such if we want this we need to fix lablgtk to deal with file-set instead of file-activated
+    *)
+    let _ = add "Dictionary" @@
+      let button = GButton.button () in
+      let reset_text () = button#set_label
+        begin
+        match !(P.dictionary_path) with
+        | "" -> "None Selected"
+        | path -> path
+        end
+      in
+      reset_text ();
+      let _ = button#connect#clicked ~callback:(fun () ->
+        let chooser = GWindow.file_chooser_dialog
+          ~action:`SAVE
+          ~parent:window
+          ~title:"Select or create a dictionary file"
+          ~modal:true
+          ()
+        in
+        chooser#set_create_folders true;
+        begin
+        match !(P.dictionary_path) with
+        | "" -> ()
+        | path -> chooser#set_filename path |> ignore
+        end;
+        chooser#set_filter @@ GFile.filter ~patterns:["*.dict" ; "*.zip"] ();
+        chooser#set_do_overwrite_confirmation false;
+        chooser#set_select_multiple false;
+        chooser#add_button_stock `CANCEL `CANCEL;
+        chooser#add_select_button_stock `OPEN `OPEN;
+        let selected =
+          match chooser#run () with
+          | `DELETE_EVENT | `CANCEL -> None
+          | `OPEN -> List.nth_opt chooser#get_filenames 0
+        in
+        chooser#destroy ();
+        (match selected with
+        | None -> ()
+        | Some filename ->
+            ignore (Internal.reload_dictionary filename);
+            P.dictionary_path := filename;
+            reset_text ();
+            ()
+        )
+      ) in
+      button
+    in
+
     let error = add "Error Log" @@ GButton.button ~label:"Show" () in
     (* error window *)
     let show_error =

@@ -30,4 +30,4 @@ _opam/
 
 # Local settings
 settings.ini
-dictionary.dict
+*.dict
