@@ -161,7 +161,10 @@ let load_dictionary () =
     pd
   | Some dict -> dict
 
-let set_dictionary pd = state.dictionary := Some pd
+let set_dictionary pd =
+  state.dictionary := Some pd;
+  PD.save pd;
+  ()
 
 let add_to_dictionary ~name ~reading ~meaning ~image =
   let dict = load_dictionary () in

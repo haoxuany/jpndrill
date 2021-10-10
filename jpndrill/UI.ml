@@ -622,8 +622,11 @@ let init () =
     )
   in
   let _ = dictionary_button#connect#clicked ~callback:(fun () ->
-    let window = DictUI.init (Internal.load_dictionary ()) in
-    Internal.set_dictionary @@ DictUI.run window
+    let window = DictUI.init
+      (Internal.load_dictionary ())
+      Internal.set_dictionary
+    in
+    DictUI.run window
   ) in
 
   window#show ();

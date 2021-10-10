@@ -8,7 +8,7 @@ type t =
   ; dictionary : Dictionary.t ref
   }
 
-let init dictionary =
+let init dictionary dictionary_change =
   let window =
     GWindow.window
     ~title:"Personal Dictionary"
@@ -19,6 +19,7 @@ let init dictionary =
   in
   let dictionary = ref dictionary in
   window#resize ~width:!(P.dictionary_width) ~height:!(P.dictionary_height);
+  let _ = window#event#connect#delete ~callback:(fun _ -> dictionary_change !dictionary; false) in
   let _ = window#misc#connect#size_allocate
     ~callback:(fun rect ->
       P.dictionary_width := rect.width;
@@ -84,7 +85,7 @@ let init dictionary =
         let id = liststore#get ~row:iter ~column:idcol in
         let entry = Dictionary.Map.find id (!dictionary : Dictionary.t).data
           |> Dictionary.entry in
-        f entry
+        f id entry
   in
 
   let add handle data =
@@ -97,7 +98,7 @@ let init dictionary =
   let images_displayed = ref [] in
 
   let _ = selection#connect#changed ~callback:(fun () ->
-    with_selection (fun (entry : Dictionary.entry) ->
+    with_selection (fun _ (entry : Dictionary.entry) ->
       let buffer = textview#buffer in
       buffer#set_text "";
       begin
@@ -145,6 +146,21 @@ let init dictionary =
     )
   ) in
 
+  let _ = list#event#connect#key_press ~callback:(fun key ->
+    let key = GdkEvent.Key.keyval key in
+    if key = GdkKeysyms._Delete then
+      begin
+      with_selection (fun handle _ ->
+        List.iter
+        (fun path -> liststore#remove @@ liststore#get_iter path |> ignore)
+        list#selection#get_selected_rows;
+        dictionary := Dictionary.remove_entry !dictionary handle
+      );
+      false
+      end
+    else false
+  ) in
+
   let _ = textview#misc#connect#size_allocate ~callback:(
     fun ({ width ; height ; _ } : Gtk.rectangle) ->
       List.iter (fun (pixbuf, image) ->
@@ -165,5 +181,4 @@ let init dictionary =
   { window ; dictionary }
 
 let run ({ window ; dictionary } : t) =
-  window#show ();
-  !dictionary
+  window#show ()
