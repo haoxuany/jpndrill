@@ -13,7 +13,10 @@ let init () =
     ()
   in
   window#resize ~width:(!P.window_width) ~height:(!P.window_height);
-  let _ = window#connect#destroy ~callback:GMain.Main.quit in
+  let _ = window#connect#destroy ~callback:(fun () ->
+    Internal.save_dictionary ();
+    GMain.Main.quit ()
+  ) in
   let _ = window#misc#connect#size_allocate
     ~callback:(fun rect ->
       P.window_width := rect.width;

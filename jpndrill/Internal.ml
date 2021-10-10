@@ -148,9 +148,7 @@ let pronounce_lookup text =
   | page :: _ -> Some (reading page)
 
 let set_dictionary pd =
-  state.dictionary := Some pd;
-  PD.save pd;
-  ()
+  state.dictionary := Some pd
 
 let reload_dictionary path =
   let pd =
@@ -184,5 +182,8 @@ let add_to_dictionary ~name ~reading ~meaning ~image =
     } : PD.entry)
   in
   state.dictionary := Some dict;
-  PD.save dict;
   ()
+
+let save_dictionary () =
+  let pd = load_dictionary () in
+  PD.save pd
