@@ -59,6 +59,9 @@ let add_entry ( { filepath ; data } : t )
 
 let find ( { data ; _ } : t) handle = Map.find handle data
 
+let remove_entry ( { filepath ; data } : t ) handle =
+  { filepath ; data = Map.remove handle data }
+
 let entry data =
   Lwt_main.run @@
   let%lwt entry = data.entry in

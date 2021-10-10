@@ -5,7 +5,7 @@ module Dictionary = PersonalDictionary
 
 type t =
   { window : GWindow.window
-  ; dictionary : Dictionary.t
+  ; dictionary : Dictionary.t ref
   }
 
 let init dictionary =
@@ -17,6 +17,7 @@ let init dictionary =
     ~resizable:true
     ()
   in
+  let dictionary = ref dictionary in
   window#resize ~width:!(P.dictionary_width) ~height:!(P.dictionary_height);
   let _ = window#misc#connect#size_allocate
     ~callback:(fun rect ->
@@ -81,7 +82,7 @@ let init dictionary =
     | entry :: _ ->
         let iter = liststore#get_iter entry in
         let id = liststore#get ~row:iter ~column:idcol in
-        let entry = Dictionary.Map.find id (dictionary : Dictionary.t).data
+        let entry = Dictionary.Map.find id (!dictionary : Dictionary.t).data
           |> Dictionary.entry in
         f entry
   in
@@ -159,9 +160,10 @@ let init dictionary =
       ) !images_displayed
   ) in
 
-  Dictionary.Map.iter add (dictionary : Dictionary.t).data;
+  Dictionary.Map.iter add (!dictionary : Dictionary.t).data;
 
   { window ; dictionary }
 
 let run ({ window ; dictionary } : t) =
-  window#show ()
+  window#show ();
+  !dictionary

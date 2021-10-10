@@ -623,7 +623,7 @@ let init () =
   in
   let _ = dictionary_button#connect#clicked ~callback:(fun () ->
     let window = DictUI.init (Internal.load_dictionary ()) in
-    DictUI.run window
+    Internal.set_dictionary @@ DictUI.run window
   ) in
 
   window#show ();
