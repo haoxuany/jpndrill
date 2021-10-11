@@ -304,7 +304,8 @@ let init () =
         frame#set_expanded true;
         let box = GPack.vbox ~spacing:8 ~border_width:8 ~packing:frame#add () in
         let reading = GButton.check_button ~label:"Pronounciation"
-          ~active:true
+          ~active:(not @@ String.equal
+            (Dictionary.reading page) (Dictionary.name page))
           ~packing:box#pack ()
         in
         let meaning = GButton.check_button ~label:"Meaning"
