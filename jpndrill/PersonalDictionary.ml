@@ -95,6 +95,15 @@ module Serialize = struct
   let save ( { data ; filepath } : t ) =
     let file = open_out filepath in
     let img_count = ref 0 in
+    let modnum = 256 in
+    let module Table = BatHashtbl.Make(struct
+      type t = string
+      let equal = String.equal
+      let hash s = String.fold_left
+        (fun h c -> (h + BatChar.code c) mod modnum)
+        0 @@ String.slice ~last:100 s
+    end) in
+    let image_table = Table.create modnum in
     Map.iter
     (fun _ ({ entry ; index ; } : data) ->
       let filename = (Int.to_string index) ^ ".json" in
@@ -103,10 +112,19 @@ module Serialize = struct
       let images = List.map
         (fun image ->
           let image = Lwt_main.run image in
-          let idx = !img_count in
-          img_count := !img_count + 1;
-          let filename = img idx in
-          add_entry ~level:9 image file filename;
+          let filename =
+            match Table.find_option image_table image with
+            | None ->
+                begin
+                  let idx = !img_count in
+                  img_count := idx + 1;
+                  let filename = img idx in
+                  Table.add image_table image filename;
+                  add_entry ~level:9 image file filename;
+                  filename
+                end
+            | Some filename -> filename
+          in
           filename
         ) images in
       let json =
@@ -125,10 +143,6 @@ module Serialize = struct
   let load filepath =
     let file = open_in filepath in
     let entries = entries file in
-    (* (1* how does the hash table magic even work? *1) *)
-    (* let module Table = BatHashtbl in *)
-    (* let table = Table.create 10 in *)
-    (* List.iter (fun entry -> Table.add table entry.filename entry) entries; *)
     let data =
       List.filter_map
       (fun entry ->
