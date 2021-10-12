@@ -116,10 +116,13 @@ let perform auth text =
       in
       sentences
         |> List.map (fun ({ text = { content ; beginOffset = offset }} : sentence) ->
-            let length = offset + String.length content in
+            (* offsets are assumed absolute to content *)
             let unparsed from til : S.t =
-              S.empty (String.sub content from (til - from))
+              let len = til - from in
+              let from = from - offset in
+              S.empty (String.sub content from len)
             in
+            let length = offset + String.length content in
             let rec split offset lastoffset =
               if offset >= length then
                 if lastoffset < length then

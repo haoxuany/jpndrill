@@ -24,6 +24,18 @@ let init () =
       ()
     )
   in
+  let cmd_key key =
+    List.exists (fun m ->
+      List.exists ((=) m) [ `META ; `CONTROL ; `SUPER ]
+    ) @@ GdkEvent.Key.state key
+  in
+  let key_is k key = GdkEvent.Key.keyval key = k in
+  let cmd_hotkey key_filter cmd = window#event#connect#key_press
+  ~callback:(
+    fun key ->
+      if cmd_key key && key_filter key then cmd () else ();
+      false
+  ) in
 
   let resize_pixbuf pixbuf to_width to_height =
     let from_width = GdkPixbuf.get_width pixbuf in
@@ -163,16 +175,33 @@ let init () =
       liststore#set ~row ~column:imgcol pixbuf;
       ()
     in
-    let select f =
+    let select f default =
       match selection#get_selected_rows with
-      | [] -> ()
+      | [] -> default ()
       | path :: _ ->
           match f path with
           | true -> selection#select_path path
           | false -> ()
     in
-    let select_next () = select (fun path -> GtkTree.TreePath.next path; true) in
-    let select_prev () = select GtkTree.TreePath.prev in
+    let select_next () = select
+      (fun path -> GtkTree.TreePath.next path; true)
+      (fun () ->
+        match liststore#get_iter_first with
+        | None -> ()
+        | Some iter -> selection#select_iter iter)
+    in
+    let select_prev () = select
+      GtkTree.TreePath.prev
+      (fun () ->
+        let last = ref None in
+        liststore#foreach (fun path _ -> last := Some path; false);
+        begin
+          match !last with
+          | None -> ()
+          | Some path -> selection#select_path path
+        end
+      )
+    in
     add, on_selection_changed, select_next, select_prev, with_selection
   in
 
@@ -430,7 +459,9 @@ let init () =
   ) in
 
   (* prev/next buttons *)
+  let _ = cmd_hotkey (key_is GdkKeysyms._k) select_prev in
   let _ = prevbutton#connect#clicked ~callback:select_prev in
+  let _ = cmd_hotkey (key_is GdkKeysyms._j) select_next in
   let _ = nextbutton#connect#clicked ~callback:select_next in
 
   (* settings button clicked *)
@@ -582,35 +613,43 @@ let init () =
       use_edit_buffer (fun buffer -> buffer#set_text text)
   in
 
-  (* action clicked *)
-  let _ = actionbutton#connect#clicked ~callback:(fun () ->
-    with_selection (fun entry ->
-      if_buffer
-      ~edit:(fun _ ->
-        use_result_buffer (fun buffer ->
-          buffer#set_text "";
-          set_status "Segmenting";
-          Internal.fetch_segment entry
-          |>
-            List.iter (
-              List.iter
-              (fun ({text ; info} : Internal.segment) ->
-                try
-                  buffer#insert ~tags:(
-                    match info with
-                    | None -> []
-                    | Some _ -> [seg_item]
-                  ) text
-                with | e -> Log.log_trace e `error
-                  (String.concat "" ["Error inserting text of: " ; text ; "\n"])
-              )
-            );
-          set_status "Segmentation completed";
+  (* action triggered *)
+  let () =
+    let action () =
+      with_selection (fun entry ->
+        if_buffer
+        ~edit:(fun _ ->
+          use_result_buffer (fun buffer ->
+            buffer#set_text "";
+            set_status "Segmenting";
+            Internal.fetch_segment entry
+            |>
+              List.iteri (
+                fun i sentence ->
+                  if i = 0 then ()
+                  else buffer#insert "\n";
+                  List.iter
+                  (fun ({text ; info} : Internal.segment) ->
+                    try
+                      buffer#insert ~tags:(
+                        match info with
+                        | None -> []
+                        | Some _ -> [seg_item]
+                      ) text
+                    with | e -> Log.log_trace e `error
+                      (String.concat "" ["Error inserting text of: " ; text ; "\n"])
+                  ) sentence
+              );
+            set_status "Segmentation completed";
+          )
         )
+        ~result:(fun _ -> use_edit_buffer (fun _ -> ()))
       )
-      ~result:(fun _ -> use_edit_buffer (fun _ -> ()))
-    )
-  ) in
+    in
+    let _ = cmd_hotkey (key_is GdkKeysyms._e) action in
+    let _ = actionbutton#connect#clicked ~callback:action in
+    ()
+  in
 
   (* tag reactions *)
   let _ = seg_item#connect#event ~callback:(
@@ -653,19 +692,10 @@ let init () =
   in
 
   (* ways to do a search *)
-  let _ = textview#event#connect#key_press ~callback:(
-    fun key ->
-      if GdkEvent.Key.keyval key = GdkKeysyms._f &&
-      List.exists (fun m ->
-        List.exists ((=) m) [ `META ; `CONTROL ; `SUPER ]
-      ) @@
-      GdkEvent.Key.state key
-      then
-        if_buffer ~edit:search_selection ~result:(fun _ -> ())
-      else ();
-      false
-  ) in
-
+  let _ = cmd_hotkey
+    (key_is GdkKeysyms._f)
+    (fun () -> if_buffer ~edit:search_selection ~result:(fun _ -> ()))
+  in
   let _ = textview#event#connect#button_release ~callback:(
     fun (button : GdkEvent.Button.t) ->
       match GdkEvent.Button.button button with
