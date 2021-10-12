@@ -641,22 +641,37 @@ let init () =
       | _ -> false
   ) in
 
-  (* text selected *)
+  let search_selection buffer =
+    if buffer#has_selection then
+      let from, til = buffer#selection_bounds in
+      let text =
+        from#get_text ~stop:til
+        |> String.filter (not % Char.is_whitespace)
+      in
+      lookup_text text
+    else ()
+  in
+
+  (* ways to do a search *)
+  let _ = textview#event#connect#key_press ~callback:(
+    fun key ->
+      if GdkEvent.Key.keyval key = GdkKeysyms._f &&
+      List.exists (fun m ->
+        List.exists ((=) m) [ `META ; `CONTROL ; `SUPER ]
+      ) @@
+      GdkEvent.Key.state key
+      then
+        if_buffer ~edit:search_selection ~result:(fun _ -> ())
+      else ();
+      false
+  ) in
+
   let _ = textview#event#connect#button_release ~callback:(
     fun (button : GdkEvent.Button.t) ->
       match GdkEvent.Button.button button with
       | 1 -> (* left mouse button *)
         if_buffer ~edit:(fun _ -> ())
-        ~result:(fun buffer ->
-          if buffer#has_selection then
-            let from, til = buffer#selection_bounds in
-            let text =
-              from#get_text ~stop:til
-              |> String.filter (not % Char.is_whitespace)
-            in
-            lookup_text text
-          else ();
-          ());
+        ~result:search_selection;
         false
       | _ -> false
   ) in

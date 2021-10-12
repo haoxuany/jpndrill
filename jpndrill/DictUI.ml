@@ -27,6 +27,15 @@ let init dictionary dictionary_change =
       ()
     )
   in
+  let _ = window#event#connect#key_press ~callback:(
+    fun key ->
+      if GdkEvent.Key.keyval key = GdkKeysyms._Escape then
+        if window#event#send @@ GdkEvent.create `DELETE
+        then false
+        else begin window#destroy (); true end
+      else false
+  ) in
+
   let layout_split =
     let layout = GPack.vbox ~packing:window#add () in
     let pane = GPack.paned `HORIZONTAL ~packing:layout#pack ~show:true () in
