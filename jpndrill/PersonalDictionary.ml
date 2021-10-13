@@ -83,7 +83,8 @@ module Serialize = struct
     } [@@deriving yojson, show] [@@yojson.allow_extra_fields]
 
   type entry_json =
-    { creation : int
+    { version : int option [@yojson.option]
+    ; creation : int
     ; name : string
     ; pronounciation : string option
     ; render : string option
@@ -128,7 +129,8 @@ module Serialize = struct
           filename
         ) images in
       let json =
-        { creation
+        { version = Some 1
+        ; creation
         ; name
         ; pronounciation
         ; render
@@ -148,7 +150,7 @@ module Serialize = struct
       (fun entry ->
         if String.ends_with entry.filename ".json"
         then
-          let ({ creation ; name ; pronounciation ; render ; context = { images } } : entry_json) =
+          let ({ version ; creation ; name ; pronounciation ; render ; context = { images } } : entry_json) =
             read_entry file entry
             |> Yojson.Safe.from_string
             |> entry_json_of_yojson
