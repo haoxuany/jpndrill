@@ -345,8 +345,11 @@ let init () =
           ~active:true
           ~packing:box#pack ()
         in
-        let button = GButton.button ~label:"Add" ~packing:box#pack () in
+        let button_row = GPack.hbox ~spacing:8 ~packing:box#pack () in
+        let button = GButton.button ~label:"Add" ~packing:button_row#pack () in
         let _ = button#connect#clicked ~callback:(
+          let icon = GMisc.image ~packing:button_row#pack () in
+          let timeout = ref None in
           fun () ->
             with_selection (fun entry ->
               let pull_checked checkbox f =
@@ -354,11 +357,21 @@ let init () =
                 | true -> Some (f ())
                 | false -> None
               in
+              begin
+                match !timeout with
+                | None -> ()
+                | Some id -> Glib.Timeout.remove id
+              end;
+              icon#set_icon_size `SMALL_TOOLBAR;
+              icon#set_stock `CONNECT;
               Internal.add_to_dictionary
                 ~name:(Dictionary.name page)
                 ~reading:(pull_checked reading (fun () -> Dictionary.reading page))
                 ~meaning:(pull_checked meaning (fun () -> Dictionary.rendering page))
-                ~image:(pull_checked image (fun () -> entry))
+                ~image:(pull_checked image (fun () -> entry));
+              icon#set_stock `YES;
+              timeout := Some (Glib.Timeout.add ~ms:10000 ~callback:(fun () -> icon#clear (); false));
+              ()
             )
         ) in
         let last = buffer#end_iter in
