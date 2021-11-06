@@ -3,6 +3,33 @@ open Batteries;;
 module P = Preferences
 module Dictionary = Internal.Dictionary
 
+(* image display *)
+(* class img ~packing = *)
+(*   let vbox = GPack.vbox ~packing () in *)
+(*   let area = GMisc.drawing_area ~packing:vbox#add () in *)
+(*   let pixbuf = ref None in *)
+
+(*   let redraw cairo = *)
+(*     begin *)
+(*       match !pixbuf with *)
+(*       | None -> () *)
+(*       | Some pixbuf -> *)
+(*           (1* this doesn't work solely because ocaml-cairo does not yet work with lablgtk3, which *)
+(*              forces an API reversion and not something we want, so this becomes a TODO. *1) *)
+(*           Cairo_gtk.set_source_pixbuf *)
+(*           cairo pixbuf (); *)
+(*           () *)
+(*     end; *)
+(*     () *)
+(*   in *)
+
+(*   object (self) *)
+(*     inherit GObj.widget vbox#as_widget *)
+(*     initializer *)
+(*       let _ = area#misc#connect#draw ~callback:(fun cairo -> redraw cairo; false) in *)
+(*       () *)
+(*   end *)
+
 let init () =
   (* window *)
   let window =
@@ -100,7 +127,6 @@ let init () =
 
   let layout_left = GPack.paned `VERTICAL ~packing:layout_left#pack ~show:true () in
 
-  (* image display *)
   let load_img =
     let pixbuf = ref None in
     let img_inner = GBin.scrolled_window () in
