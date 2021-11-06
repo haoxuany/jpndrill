@@ -397,16 +397,18 @@ let init () =
   let layout_search = GPack.hbox ~packing:layout_lookup#pack () in
   let search = GEdit.entry ~packing:layout_search#pack () in
   search#set_hexpand true;
-  let stock_button stock =
+  let stock_button stock text =
     let img = GMisc.image () in
     img#set_icon_size `SMALL_TOOLBAR;
     img#set_stock stock;
     let button = GButton.button ~packing:layout_search#pack () in
     button#set_image img#coerce;
+    button#set_tooltip_text text;
     button
   in
-  let search_button = stock_button `FIND in
-  let dictionary_button = stock_button `PAGE_SETUP in
+  let search_button = stock_button `FIND "Search" in
+  let hiraganaize_button = stock_button `SPELL_CHECK "Katakana to Hiragana" in
+  let dictionary_button = stock_button `PAGE_SETUP "Dictionary" in
 
   let lookup_text text =
     set_status "Looking up text";
@@ -734,6 +736,25 @@ let init () =
       false
     )
   in
+  let _ = hiraganaize_button#connect#clicked ~callback:(fun () ->
+    search#set_text (
+      let text = search#text in
+      let result = BatUTF8.Buf.create (BatString.length text) in
+      let () = BatUTF8.iter (
+        fun c -> BatUTF8.Buf.add_char result (
+          (* See https://memory.loc.gov/diglib/codetables/9.2.html *)
+          (* Basically the range we handle here are from code point 30a1 to 30f6 *)
+          let code = BatUChar.code c in
+          if code >= 12449 && code <= 12534 then
+            (* Hiragana range starts from code point 3041 *)
+            BatUChar.chr (code - (12449 - 12353))
+          else c
+        )
+      ) text in
+      BatUTF8.Buf.contents result
+    );
+    perform_search ()
+  ) in
   let _ = dictionary_button#connect#clicked ~callback:(fun () ->
     let window = DictUI.init
       (Internal.load_dictionary ())
