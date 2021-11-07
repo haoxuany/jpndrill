@@ -1,5 +1,7 @@
 # Japanese Drill
 
+![Screenshot Preview](screenshot.png)
+
 This is a program that I wrote for the sole purpose of helping me drill through words that I don't understand/can't read in games. I've always wanted something like this, but the closest thing I've found are Google Keep notes OCR (which is awful for actually keeping things organized), and OneNote OCR (which is just horrible all around, especially for recognition), so I just took things into my own hands and wrote this. I did manage to mostly finish this way ahead of the Pokemon Brilliant Diamond and Shining Pearl releases, so mission accomplished.
 
 This is one of the projects that I won't be actively maintaining, considering that I've only spent like 20 hours on this and this isn't related to my primary interests. I might however push updates over time on things that I don't particularly like or has diverged from my japanese learning workflow.
