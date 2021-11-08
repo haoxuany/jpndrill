@@ -19,7 +19,6 @@ let init dictionary dictionary_change =
   in
   let dictionary = ref dictionary in
   window#resize ~width:!(P.dictionary_width) ~height:!(P.dictionary_height);
-  let _ = window#event#connect#delete ~callback:(fun _ -> dictionary_change !dictionary; false) in
   let _ = window#misc#connect#size_allocate
     ~callback:(fun rect ->
       P.dictionary_width := rect.width;
@@ -40,6 +39,7 @@ let init dictionary dictionary_change =
     let layout = GPack.vbox ~packing:window#add () in
     let pane = GPack.paned `HORIZONTAL ~packing:layout#pack ~show:true () in
     pane#set_expand true;
+    pane#set_position !(P.dictionary_hsplit);
     pane
   in
   let font () =
@@ -216,6 +216,11 @@ let init dictionary dictionary_change =
   ) in
 
   Dictionary.Map.iter add (!dictionary : Dictionary.t).data;
+
+  let _ = window#event#connect#delete ~callback:(fun _ ->
+    P.dictionary_hsplit := layout_split#position;
+    dictionary_change !dictionary;
+    false) in
 
   { window ; dictionary }
 

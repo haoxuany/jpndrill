@@ -7,12 +7,17 @@ module R = I.R;;
 let window_width = ref 600
 let window_height = ref 400
 
+let window_hsplit = ref 300
+let window_img_vsplit = ref 200
+let window_dict_vsplit = ref 200
+
 (* TODO: write a generic option serializer later *)
 let text_font = ref ""
 let dict_font = ref ""
 
 let dictionary_width = ref 500
 let dictionary_height = ref 500
+let dictionary_hsplit = ref 250
 
 let preserve_aspect_ratio = ref true
 
@@ -33,6 +38,21 @@ let settings_spec : I.t =
       ; { key = "height"
         ; value =
             let module V = R.IntRefReference(struct let value = window_height end) in
+            (module V)
+        }
+      ; { key = "hsplit"
+        ; value =
+            let module V = R.IntRefReference(struct let value = window_hsplit end) in
+            (module V)
+        }
+      ; { key = "img_vsplit"
+        ; value =
+            let module V = R.IntRefReference(struct let value = window_img_vsplit end) in
+            (module V)
+        }
+      ; { key = "dict_vsplit"
+        ; value =
+            let module V = R.IntRefReference(struct let value = window_dict_vsplit end) in
             (module V)
         }
       ; { key = "preserve_aspect_ration"
@@ -58,6 +78,11 @@ let settings_spec : I.t =
       ; { key = "dict_height"
         ; value =
             let module V = R.IntRefReference(struct let value = dictionary_height end) in
+            (module V)
+        }
+      ; { key = "dict_hsplit"
+        ; value =
+            let module V = R.IntRefReference(struct let value = dictionary_hsplit end) in
             (module V)
         }
       ]

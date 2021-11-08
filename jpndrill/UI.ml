@@ -40,10 +40,6 @@ let init () =
     ()
   in
   window#resize ~width:(!P.window_width) ~height:(!P.window_height);
-  let _ = window#connect#destroy ~callback:(fun () ->
-    Internal.save_dictionary ();
-    GMain.Main.quit ()
-  ) in
   let _ = window#misc#connect#size_allocate
     ~callback:(fun rect ->
       P.window_width := rect.width;
@@ -84,6 +80,7 @@ let init () =
 
   let layout_split = GPack.paned `HORIZONTAL ~packing:layout_window#pack ~show:true () in
   layout_split#set_expand true;
+  layout_split#set_position !(P.window_hsplit);
 
   let frame ~label ~packing f =
     let frame = GBin.frame ~label ~packing ~show:true () in
@@ -126,6 +123,7 @@ let init () =
   in
 
   let layout_left = GPack.paned `VERTICAL ~packing:layout_left#pack ~show:true () in
+  layout_left#set_position !(P.window_img_vsplit);
 
   let load_img =
     let pixbuf = ref None in
@@ -233,6 +231,7 @@ let init () =
 
   (* Right UI *)
   let layout_right = GPack.paned `VERTICAL ~packing:layout_split#pack2 ~show:true () in
+  layout_right#set_position !(P.window_dict_vsplit);
 
   (* main text *)
   let textview = frame ~label:"Text" ~packing:layout_right#pack1
@@ -787,6 +786,14 @@ let init () =
       Internal.set_dictionary
     in
     DictUI.run window
+  ) in
+
+  let _ = window#connect#destroy ~callback:(fun () ->
+    P.window_hsplit := layout_split#position;
+    P.window_img_vsplit := layout_left#position;
+    P.window_dict_vsplit := layout_right#position;
+    Internal.save_dictionary ();
+    GMain.Main.quit ()
   ) in
 
   window#show ();
